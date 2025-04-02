@@ -15,20 +15,13 @@
         #app {
             height: 100vh;
         }
-        .loading {
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            font-size: 1.2rem;
-            color: #666;
-        }
     </style>
 </head>
 <body>
     <div id="app">
-        <div class="loading">Loading...</div>
+      <!-- If you see this, Vue did not mount! -->
+      <h1>Initial HTML Content</h1>
     </div>
-    <script src="/bundle.js"></script>
+    <script type="module" src="./main.js"></script>
 </body>
 </html> 

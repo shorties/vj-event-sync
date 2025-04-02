@@ -1,103 +1,98 @@
-# VJ Event Sync & Logo Management Tool for Resolume
+# VJ Event Sync & Logo Management Tool
 
-A comprehensive tool for synchronizing events from vj.tools, managing logos, and controlling video playback with Resolume integration.
+A lightweight cross-platform application for VJs to manage events, logos, and timers with Resolume integration.
 
 ## Features
 
-- Event synchronization with vj.tools
-- Offline support with local caching
-- Video playback with timer-based triggers
-- Web interface for local network control
-- OSC integration for real-time control
-- NDI video streaming support
-- Resolume Wire plugin integration
+- **Event Synchronization**: Sync events from vj.tools with offline support
+- **Logo Management**: Organize and display logos for events
+- **Timer Control**: Set timers for sets with visual countdown
+- **Messaging System**: Communicate with other VJs and event organizers
+- **OSC Integration**: Control Resolume via OSC
+- **NDI Support**: Stream logos directly to Resolume via NDI
+- **Resolume Wire Plugin**: Seamless integration with Resolume
 
-## Prerequisites
+## Getting Started
 
-- Node.js (v16 or higher)
-- NDI SDK
-- VLC Media Player
-- Resolume Arena/Avenue (for Wire plugin integration)
+### Prerequisites
 
-## Installation
+- [Node.js](https://nodejs.org/) (v14 or later)
+- [Rust](https://www.rust-lang.org/tools/install) (latest stable)
+- [Tauri CLI](https://tauri.app/v1/guides/getting-started/prerequisites)
+
+### Installation
 
 1. Clone the repository:
-```bash
-git clone [repository-url]
-cd vj-event-sync
-```
+   ```bash
+   git clone https://github.com/yourusername/vj-event-sync.git
+   cd vj-event-sync
+   ```
 
 2. Install dependencies:
+   ```bash
+   npm install
+   ```
+
+3. Start the development server:
+   ```bash
+   npm run tauri dev
+   ```
+
+### Building for Production
+
+To build the application for your platform:
+
 ```bash
-npm install
+npm run tauri build
 ```
 
-3. Create a `.env` file in the root directory with the following variables:
-```env
-PORT=3000
-OSC_PORT=12345
-NDI_ENABLED=true
-VLC_PATH=/path/to/vlc
-```
+This will create a standalone executable in the `src-tauri/target/release` directory.
+
+## Architecture
+
+The application is built with:
+
+- **Frontend**: Vue.js 3 with Vite
+- **Backend**: Node.js with Express
+- **Desktop Framework**: Tauri (Rust)
+- **Database**: SQLite
+- **Communication**: Socket.io for real-time updates
 
 ## Development
 
-Start the development server:
-```bash
-npm run dev
-```
-
-Build the frontend:
-```bash
-npm run build:dev
-```
-
-## Production
-
-Build and start the production server:
-```bash
-npm run build
-npm start
-```
-
-## Project Structure
+### Project Structure
 
 ```
 vj-event-sync/
 ├── src/
-│   ├── server/           # Backend server code
-│   ├── client/           # Frontend web application
-│   ├── services/         # Core services (Event sync, OSC, NDI)
-│   └── wire/            # Resolume Wire plugin
-├── config/              # Configuration files
-├── assets/             # Static assets (logos, etc.)
-└── tests/              # Test files
+│   ├── client/           # Vue.js frontend
+│   │   ├── components/   # Vue components
+│   │   ├── services/     # API services
+│   │   └── ...
+│   ├── server/           # Node.js backend
+│   │   ├── controllers/  # API controllers
+│   │   ├── models/       # Data models
+│   │   └── ...
+│   └── wire/             # Resolume Wire plugin
+├── src-tauri/            # Tauri (Rust) code
+│   ├── src/              # Rust source code
+│   └── ...
+├── public/               # Static assets
+└── ...
 ```
 
-## API Documentation
+### Adding New Features
 
-### Event Sync API
-- `GET /api/events` - Get all events
-- `GET /api/events/:id` - Get specific event
-- `POST /api/events/sync` - Trigger manual sync
-
-### OSC Endpoints
-- `/logo/change` - Change current logo
-- `/timer/start` - Start timer
-- `/timer/stop` - Stop timer
-
-### NDI Streams
-- Main output: "VJ Event Sync Output"
-- Preview output: "VJ Event Sync Preview"
-
-## Contributing
-
-1. Fork the repository
-2. Create your feature branch
-3. Commit your changes
-4. Push to the branch
-5. Create a new Pull Request
+1. Create new Vue components in `src/client/components/`
+2. Add API endpoints in `src/server/controllers/`
+3. Update the Tauri commands in `src-tauri/src/main.rs` if needed
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details. 
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## Acknowledgments
+
+- [Tauri](https://tauri.app/) - For the lightweight desktop framework
+- [Vue.js](https://vuejs.org/) - For the frontend framework
+- [Resolume](https://resolume.com/) - For the VJ software integration 

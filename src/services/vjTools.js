@@ -1,18 +1,10 @@
-const axios = require('axios');
-const winston = require('winston');
+import axios from 'axios';
 
-// Configure logger
-const logger = winston.createLogger({
-    level: 'info',
-    format: winston.format.combine(
-        winston.format.timestamp(),
-        winston.format.json()
-    ),
-    transports: [
-        new winston.transports.File({ filename: 'logs/vjTools.log' }),
-        new winston.transports.Console()
-    ]
-});
+// Configure logger - Using console for frontend
+const logger = {
+    info: console.log,
+    error: console.error
+};
 
 class VJToolsService {
     constructor() {
@@ -37,7 +29,7 @@ class VJToolsService {
             logger.info(`User ${username} logged in successfully`);
             return this.user;
         } catch (error) {
-            logger.error('Failed to login to vj.tools:', error);
+            logger.error('Failed to login to vj.tools:', error.response ? error.response.data : error.message);
             throw error;
         }
     }
@@ -48,7 +40,7 @@ class VJToolsService {
             logger.info('Successfully synced events from vj.tools');
             return response.data;
         } catch (error) {
-            logger.error('Failed to sync events from vj.tools:', error);
+            logger.error('Failed to sync events from vj.tools:', error.response ? error.response.data : error.message);
             throw error;
         }
     }
@@ -59,7 +51,7 @@ class VJToolsService {
             logger.info('Successfully synced messages from vj.tools');
             return response.data;
         } catch (error) {
-            logger.error('Failed to sync messages from vj.tools:', error);
+            logger.error('Failed to sync messages from vj.tools:', error.response ? error.response.data : error.message);
             throw error;
         }
     }
@@ -73,7 +65,7 @@ class VJToolsService {
             logger.info('Message sent successfully to vj.tools');
             return response.data;
         } catch (error) {
-            logger.error('Failed to send message to vj.tools:', error);
+            logger.error('Failed to send message to vj.tools:', error.response ? error.response.data : error.message);
             throw error;
         }
     }
@@ -84,7 +76,7 @@ class VJToolsService {
             logger.info('Successfully fetched conversations from vj.tools');
             return response.data;
         } catch (error) {
-            logger.error('Failed to fetch conversations from vj.tools:', error);
+            logger.error('Failed to fetch conversations from vj.tools:', error.response ? error.response.data : error.message);
             throw error;
         }
     }
@@ -95,7 +87,7 @@ class VJToolsService {
             logger.info('Successfully fetched online users from vj.tools');
             return response.data;
         } catch (error) {
-            logger.error('Failed to fetch online users from vj.tools:', error);
+            logger.error('Failed to fetch online users from vj.tools:', error.response ? error.response.data : error.message);
             throw error;
         }
     }
@@ -112,4 +104,6 @@ class VJToolsService {
     }
 }
 
-module.exports = new VJToolsService(); 
+// Export the instance as the default export
+const instance = new VJToolsService();
+export default instance; 
