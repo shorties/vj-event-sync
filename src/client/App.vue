@@ -2,66 +2,45 @@
   <div id="app">
     <TitleBar />
     <div class="app-container">
-      <nav class="sidebar">
+      <aside class="sidebar" :class="{ collapsed: isSidebarCollapsed }">
         <div class="logo">
-          <img src="./assets/VJToolsRounded.ico" alt="VJ.Tools Logo" />
-          <h1>VJ.Tools</h1>
+          <img src="./assets/VJtools.ico" alt="VJ.Tools Logo" />
+          <span class="logo-text">VJ.Tools</span>
         </div>
-        
-        <div class="nav-links">
-          <button 
-            v-for="module in availableModules" 
+        <nav class="nav-buttons">
+          <button
+            v-for="module in availableModules"
             :key="module.id"
             class="nav-button"
-            :class="{ 
-              'active': currentModule === module.id,
-              'disabled': !module.enabled && !module.required
+            :class="{
+              active: currentModule === module.id,
+              disabled: !module.enabled && !module.required,
+              required: module.required
             }"
             @click="selectModule(module.id)"
             :disabled="!module.enabled && !module.required"
           >
-            <span class="module-name">{{ module.name }}</span>
-            <span v-if="module.required" class="required-badge">Required</span>
+            <i :class="module.icon"></i>
+            <span>{{ module.name }}</span>
           </button>
-        </div>
-        
-        <div class="nav-footer">
-          <button class="settings-button" @click="showSettings = true">
-            <span class="icon">⚙️</span>
-            Settings
-          </button>
-        </div>
-      </nav>
-      
+        </nav>
+        <button class="settings-button" @click="showSettings = true">
+          <i class="fas fa-cog"></i>
+          <span>Settings</span>
+        </button>
+      </aside>
       <main class="main-content">
-        <div class="content-header">
-          <h1>{{ currentModuleName }}</h1>
-          <div class="connection-status">
-            <span class="status-indicator" :class="{ 'online': !isOffline }"></span>
-            <span class="status-text">{{ isOffline ? 'Offline' : 'Online' }}</span>
-          </div>
-        </div>
-
-        <div class="content-body">
-          <!-- Dynamically load components based on enabled modules -->
-          <component 
-            v-if="currentModule && isModuleEnabled(currentModule)"
-            :is="currentModuleComponent"
-            @error="handleModuleError"
-          />
-          <div v-else-if="currentModule && !isModuleEnabled(currentModule)" class="module-placeholder">
-            <h2>Module Disabled</h2>
-            <p>The selected module is currently disabled. Enable it in the settings.</p>
-          </div>
-          <div v-else class="module-placeholder">
-            <h2>Select a Module</h2>
-            <p>Choose a module from the sidebar to get started.</p>
-          </div>
+        <component
+          v-if="currentModuleComponent"
+          :is="currentModuleComponent"
+          @error="handleError"
+        />
+        <div v-else class="module-placeholder">
+          <h2>Select a Module</h2>
+          <p>Choose a module from the sidebar to get started.</p>
         </div>
       </main>
     </div>
-    
-    <!-- Settings Modal -->
     <div v-if="showSettings" class="modal-overlay" @click="showSettings = false">
       <div class="modal-content" @click.stop>
         <Settings @close="showSettings = false" />
@@ -73,107 +52,73 @@
 <script>
 import { ref, computed, onMounted } from 'vue';
 import TitleBar from './components/TitleBar.vue';
-import Events from './components/Events.vue';
-import Messaging from './components/Messaging.vue';
 import Settings from './components/Settings.vue';
 import Logos from './components/Logos.vue';
 import OSC from './components/OSC.vue';
 import NDI from './components/NDI.vue';
-import TestComponent from './components/TestComponent.vue';
-import ModuleManager from './services/ModuleManager';
+import Events from './components/Events.vue';
+import Messaging from './components/Messaging.vue';
+import { useModuleManager } from './services/ModuleManager';
 
 export default {
   name: 'App',
   components: {
     TitleBar,
-    Events,
-    Messaging,
     Settings,
     Logos,
     OSC,
     NDI,
-    TestComponent
+    Events,
+    Messaging
   },
   setup() {
+    const moduleManager = useModuleManager();
     const currentModule = ref(null);
     const showSettings = ref(false);
-    const isOffline = ref(false);
-    const moduleError = ref(null);
-    const availableModules = ref({});
-    
-    // Initialize module manager
-    onMounted(async () => {
-      console.log('App component mounted. Bypassing ModuleManager init for debugging.');
-      // try {
-      //   await ModuleManager.init();
-      //   availableModules.value = ModuleManager.getAvailableModules();
-      //   // Set initial module
-      //   currentModule.value = 'logos';
-      //   console.log('Module manager initialized, current module:', currentModule.value);
-      //   console.log('Available modules:', availableModules.value);
-      // } catch (error) {
-      //   console.error('Error initializing module manager:', error);
-      // }
-    });
-    
-    // Computed property for current module component
+    const isSidebarCollapsed = ref(false);
+    const error = ref(null);
+
+    const availableModules = computed(() => moduleManager.getAvailableModules());
+
     const currentModuleComponent = computed(() => {
       if (!currentModule.value) return null;
-      
-      // Map module ID to component name
-      const componentMap = {
-        'events': 'Events',
-        'messaging': 'Messaging',
-        'settings': 'Settings',
-        'logos': 'Logos',
-        'osc': 'OSC',
-        'ndi': 'NDI'
-      };
-      
-      return componentMap[currentModule.value] || null;
+      const module = availableModules.value.find(m => m.id === currentModule.value);
+      return module ? module.component : null;
     });
-    
-    // Get current module name
-    const currentModuleName = computed(() => {
-      const module = availableModules.value[currentModule.value];
-      return module ? module.name : '';
-    });
-    
-    // Module selection handler
+
     const selectModule = (moduleId) => {
-      if (ModuleManager.isModuleEnabled(moduleId) || ModuleManager.getAvailableModules()[moduleId].required) {
+      const module = availableModules.value.find(m => m.id === moduleId);
+      if (module && (module.enabled || module.required)) {
         currentModule.value = moduleId;
       }
     };
-    
-    // Enable a module
-    const enableModule = async (moduleId) => {
-      await ModuleManager.toggleModule(moduleId, true);
+
+    const handleError = (err) => {
+      error.value = err;
+      console.error('Module error:', err);
     };
-    
-    // Module error handler
-    const handleModuleError = (error) => {
-      moduleError.value = error;
-      console.error('Module error:', error);
-    };
-    
-    // Check if module is enabled
-    const isModuleEnabled = (moduleId) => {
-      return ModuleManager.isModuleEnabled(moduleId);
-    };
-    
+
+    onMounted(async () => {
+      try {
+        await moduleManager.init();
+        // Select the first enabled module by default
+        const firstEnabledModule = availableModules.value.find(m => m.enabled || m.required);
+        if (firstEnabledModule) {
+          currentModule.value = firstEnabledModule.id;
+        }
+      } catch (err) {
+        handleError(err);
+      }
+    });
+
     return {
       currentModule,
       showSettings,
-      isOffline,
-      moduleError,
+      isSidebarCollapsed,
       availableModules,
       currentModuleComponent,
-      currentModuleName,
       selectModule,
-      enableModule,
-      handleModuleError,
-      isModuleEnabled
+      handleError
     };
   }
 };
@@ -181,21 +126,19 @@ export default {
 
 <style>
 :root {
-  --primary-color: #2196F3;
-  --secondary-color: #1976D2;
-  --background-color: #f5f5f5;
-  --text-color: #333;
-  --text-light: #666;
-  --border-color: #ddd;
-  --error-color: #f44336;
-  --success-color: #4caf50;
-}
-
-[data-theme="dark"] {
+  --primary-color: #4a90e2;
+  --secondary-color: #2c3e50;
   --background-color: #1a1a1a;
-  --text-color: #fff;
-  --text-light: #aaa;
-  --border-color: #333;
+  --text-color: #ffffff;
+  --border-color: #333333;
+  --hover-color: #2c3e50;
+  --active-color: #4a90e2;
+  --error-color: #e74c3c;
+  --success-color: #2ecc71;
+  --warning-color: #f1c40f;
+  --info-color: #3498db;
+  --border-radius: 12px;
+  --transition-speed: 0.3s;
 }
 
 * {
@@ -205,31 +148,55 @@ export default {
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   background-color: var(--background-color);
   color: var(--text-color);
+  line-height: 1.6;
+  overflow: hidden;
+}
+
+#app {
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--background-color);
+  border-radius: var(--border-radius);
+  overflow: hidden;
 }
 
 .app-container {
   display: flex;
-  height: 100vh;
+  flex: 1;
   overflow: hidden;
+  border-radius: var(--border-radius);
+  background-color: var(--background-color);
 }
 
 .sidebar {
   width: 250px;
-  background-color: white;
-  border-right: 1px solid var(--border-color);
+  min-width: 250px;
+  height: 100%;
+  background-color: var(--secondary-color);
+  padding: 1rem;
   display: flex;
   flex-direction: column;
-  padding: 1rem;
+  gap: 1rem;
+  border-right: 1px solid var(--border-color);
+  transition: width var(--transition-speed);
+}
+
+.sidebar.collapsed {
+  width: 60px;
+  min-width: 60px;
+  padding: 1rem 0.5rem;
 }
 
 .logo {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 16px;
+  gap: 1rem;
+  padding: 1rem;
   border-bottom: 1px solid var(--border-color);
   background-color: var(--background-color);
 }
@@ -240,40 +207,45 @@ body {
   object-fit: contain;
 }
 
-.logo h1 {
-  font-size: 1.2rem;
-  font-weight: 600;
+.logo-text {
+  font-size: 1.5rem;
+  font-weight: bold;
   color: var(--text-color);
-  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.nav-links {
-  flex: 1;
+.nav-buttons {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+  flex: 1;
 }
 
 .nav-button {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  gap: 1rem;
   padding: 0.75rem 1rem;
   border: none;
-  border-radius: 6px;
-  background: none;
+  border-radius: var(--border-radius);
+  background-color: transparent;
   color: var(--text-color);
   cursor: pointer;
-  transition: all 0.2s;
+  transition: background-color var(--transition-speed);
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.nav-button:hover:not(:disabled) {
-  background-color: var(--background-color);
+.nav-button:hover {
+  background-color: var(--hover-color);
 }
 
 .nav-button.active {
-  background-color: var(--primary-color);
-  color: white;
+  background-color: var(--active-color);
 }
 
 .nav-button.disabled {
@@ -281,94 +253,32 @@ body {
   cursor: not-allowed;
 }
 
-.required-badge {
-  font-size: 0.7rem;
-  background-color: var(--primary-color);
-  color: white;
-  padding: 0.1rem 0.3rem;
-  border-radius: 3px;
-}
-
-.nav-footer {
-  margin-top: auto;
-  padding-top: 1rem;
-  border-top: 1px solid var(--border-color);
-}
-
-.settings-button {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  width: 100%;
-  padding: 0.75rem 1rem;
-  border: none;
-  border-radius: 6px;
-  background: none;
-  color: var(--text-color);
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.settings-button:hover {
-  background-color: var(--background-color);
+.nav-button.required {
+  opacity: 1;
+  cursor: not-allowed;
 }
 
 .main-content {
   flex: 1;
   padding: 2rem;
   overflow-y: auto;
-}
-
-.content-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 1rem 2rem;
-  background-color: white;
-  border-bottom: 1px solid var(--border-color);
-}
-
-.content-header h1 {
-  font-size: 1.5rem;
-  font-weight: 500;
-}
-
-.connection-status {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.status-indicator {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background-color: var(--error-color);
-}
-
-.status-indicator.online {
-  background-color: var(--success-color);
-}
-
-.status-text {
-  font-size: 0.9rem;
-  color: var(--text-light);
-}
-
-.content-body {
-  flex: 1;
-  overflow-y: auto;
-  padding: 2rem;
-}
-
-.module-placeholder {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-  color: var(--text-light);
-  text-align: center;
+  gap: 2rem;
+}
+
+.settings-button {
+  padding: 0.75rem 1rem;
+  border: none;
+  border-radius: var(--border-radius);
+  background-color: var(--secondary-color);
+  color: var(--text-color);
+  cursor: pointer;
+  transition: background-color var(--transition-speed);
+}
+
+.settings-button:hover {
+  background-color: var(--hover-color);
 }
 
 .modal-overlay {
@@ -379,18 +289,66 @@ body {
   bottom: 0;
   background-color: rgba(0, 0, 0, 0.5);
   display: flex;
-  align-items: center;
   justify-content: center;
+  align-items: center;
   z-index: 1000;
 }
 
 .modal-content {
-  background-color: white;
-  border-radius: 8px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-  width: 90%;
-  max-width: 600px;
+  background-color: var(--background-color);
+  padding: 2rem;
+  border-radius: var(--border-radius);
+  max-width: 90%;
   max-height: 90vh;
   overflow-y: auto;
+  position: relative;
+  border: 1px solid var(--border-color);
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .sidebar {
+    width: 60px;
+    min-width: 60px;
+    padding: 1rem 0.5rem;
+  }
+
+  .logo-text {
+    display: none;
+  }
+
+  .nav-button span {
+    display: none;
+  }
+
+  .main-content {
+    padding: 1rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .modal-content {
+    width: 95%;
+    padding: 1rem;
+  }
+}
+
+/* Scrollbar Styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--background-color);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--secondary-color);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--hover-color);
 }
 </style> 

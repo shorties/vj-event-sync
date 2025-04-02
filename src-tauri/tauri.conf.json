@@ -6,17 +6,18 @@
     "distDir": "../dist"
   },
   "package": {
-    "productName": "VJ.Tools",
-    "version": "1.0.0"
+    "productName": "VJ Event Sync",
+    "version": "0.1.0"
   },
   "tauri": {
     "allowlist": {
       "all": false,
       "shell": {
-        "all": true,
-        "execute": true,
-        "sidecar": true,
+        "all": false,
         "open": true
+      },
+      "window": {
+        "all": true
       },
       "fs": {
         "all": true,
@@ -29,28 +30,6 @@
         "removeFile": true,
         "renameFile": true,
         "exists": true
-      },
-      "path": {
-        "all": true
-      },
-      "http": {
-        "all": true,
-        "request": true,
-        "scope": ["https://vj.tools/*"]
-      },
-      "notification": {
-        "all": true
-      },
-      "window": {
-        "all": true,
-        "close": true,
-        "hide": true,
-        "show": true,
-        "maximize": true,
-        "minimize": true,
-        "unmaximize": true,
-        "unminimize": true,
-        "startDragging": true
       }
     },
     "bundle": {
@@ -59,41 +38,23 @@
       "identifier": "com.vjeventsync.app",
       "icon": [
         "icons/icon.ico"
-      ],
-      "resources": [],
-      "externalBin": [],
-      "copyright": "",
-      "category": "DeveloperTool",
-      "shortDescription": "VJ.Tools - Logo Management Tool",
-      "longDescription": "",
-      "deb": {
-        "depends": []
-      },
-      "macOS": {
-        "frameworks": [],
-        "minimumSystemVersion": "",
-        "exceptionDomain": "",
-        "signingIdentity": null,
-        "entitlements": null
-      },
-      "windows": {
-        "certificateThumbprint": null,
-        "digestAlgorithm": "sha256",
-        "timestampUrl": ""
-      }
+      ]
     },
     "security": {
       "csp": null
     },
     "windows": [
       {
-        "title": "VJ.Tools",
+        "fullscreen": false,
+        "resizable": true,
+        "title": "VJ Event Sync",
         "width": 1200,
         "height": 800,
-        "resizable": true,
-        "fullscreen": false,
+        "minWidth": 800,
+        "minHeight": 600,
+        "transparent": true,
         "decorations": false,
-        "transparent": true
+        "center": true
       }
     ]
   }
