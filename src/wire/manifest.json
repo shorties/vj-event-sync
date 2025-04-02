@@ -1,0 +1,40 @@
+{
+  "name": "VJ Event Sync",
+  "version": "1.0.0",
+  "description": "VJ Event Sync & Logo Management Tool for Resolume",
+  "author": "Your Name",
+  "main": "index.js",
+  "dependencies": {
+    "node-osc": "^8.0.12"
+  },
+  "resolume": {
+    "minVersion": "7.0.0",
+    "category": "Input",
+    "inputs": [
+      {
+        "name": "OSC Port",
+        "type": "number",
+        "default": 12345
+      },
+      {
+        "name": "Host",
+        "type": "string",
+        "default": "127.0.0.1"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "Current Logo",
+        "type": "texture"
+      },
+      {
+        "name": "Timer Remaining",
+        "type": "number"
+      },
+      {
+        "name": "Is Timer Running",
+        "type": "boolean"
+      }
+    ]
+  }
+} 
