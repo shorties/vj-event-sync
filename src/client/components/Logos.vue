@@ -1,730 +1,559 @@
 <template>
-  <div class="logos-container">
-    <div class="logos-header">
-      <h2>Logo Management</h2>
-      <div class="header-actions">
-        <button class="action-button" @click="createNewLogo">
-          <span class="icon">+</span> New Logo
-        </button>
-        <button class="action-button" @click="importLogo">
-          <span class="icon">↑</span> Import
-        </button>
-      </div>
-    </div>
-    
-    <div class="logos-content">
-      <div class="logos-sidebar">
-        <div class="search-box">
-          <input type="text" placeholder="Search logos..." v-model="searchQuery" />
+  <div class="logo-manager-container">
+    <h2>Logo Management</h2>
+    <div class="logo-manager-content">
+      <!-- Left Column: Logo Grid & Actions -->
+      <div class="logo-grid-section" :class="{ 'dragging-over': isDraggingOver }">
+        <div class="grid-toolbar">
+          <input 
+            type="text" 
+            v-model="searchQuery"
+            placeholder="Search logos..."
+            class="search-input"
+          />
+          <label class="show-archived-toggle">
+             <input type="checkbox" v-model="showArchived" />
+             Show Archived
+          </label>
+          <button class="btn-primary add-button" @click="triggerAddLogo">
+            <i class="fas fa-plus"></i> Add Logos
+          </button>
         </div>
-        
-        <div class="logo-categories">
-          <h3>Categories</h3>
-          <ul>
-            <li 
-              v-for="category in categories" 
-              :key="category.id"
-              :class="{ active: selectedCategory === category.id }"
-              @click="selectedCategory = category.id"
-            >
-              {{ category.name }}
-              <span class="count">{{ category.count }}</span>
-            </li>
-          </ul>
-        </div>
-        
-        <div class="logo-tags">
-          <h3>Tags</h3>
-          <div class="tag-list">
-            <span 
-              v-for="tag in tags" 
-              :key="tag.id"
-              class="tag"
-              :class="{ active: selectedTags.includes(tag.id) }"
-              @click="toggleTag(tag.id)"
-            >
-              {{ tag.name }}
-            </span>
-          </div>
-        </div>
+        <div v-if="isLoading" class="loading-indicator">Loading logos...</div>
+        <div v-else-if="error" class="error-message">Error loading logos: {{ error }}</div>
+        <ul v-else-if="filteredLogos.length > 0" class="logo-grid">
+          <li 
+            v-for="logo in filteredLogos" 
+            :key="logo.id"
+            class="logo-grid-item"
+            :class="{ 
+                selected: selectedLogo && selectedLogo.id === logo.id,
+                archived: logo.isArchived 
+             }"
+            @click="selectLogoForPreview(logo)"
+          >
+            <img :src="logo.thumbnailUrl" :alt="logo.name" class="logo-thumbnail" />
+            <span class="logo-name">{{ logo.name }}</span>
+            <span v-if="logo.isArchived" class="archived-badge"><i class="fas fa-archive"></i></span>
+          </li>
+        </ul>
+        <div v-else class="empty-state">No {{ showArchived ? '' : 'active' }} logos found.</div>
       </div>
       
-      <div class="logos-main">
-        <div v-if="logos.length === 0" class="empty-state">
-          <div class="empty-icon">
-            <svg viewBox="0 0 24 24" width="64" height="64">
-              <path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z" fill="#2196F3"/>
-            </svg>
+      <!-- Right Column: Preview & Details -->
+      <div class="logo-preview-section">
+        <div v-if="selectedLogo" class="preview-content">
+          <h3>Logo Details</h3>
+          <div class="preview-image-container">
+             <span v-if="selectedLogo.isArchived" class="archived-overlay-badge">ARCHIVED</span>
+            <img :src="selectedLogo.fullUrl" :alt="selectedLogo.name" class="preview-image" :class="{ archived: selectedLogo.isArchived }" />
           </div>
-          <h3>No Logos Found</h3>
-          <p>Create your first logo or import an existing one to get started.</p>
-          <button class="primary-button" @click="createNewLogo">Create New Logo</button>
+          <div class="preview-info">
+            <input 
+              type="text" 
+              v-model="selectedLogo.name" 
+              class="preview-name-input" 
+              @change="updateLogoName(selectedLogo)" 
+              :disabled="selectedLogo.isArchived"
+            />
+            <p class="preview-filename">Filename: {{ selectedLogo.fileName }}</p>
+            <p v-if="selectedLogo.isArchived" class="archived-status-text">Status: Archived</p>
+          </div>
+          <div class="preview-actions">
+             <button 
+                v-if="!selectedLogo.isArchived"
+                class="btn-secondary archive-button" 
+                @click="archiveLogo(selectedLogo.id)"
+              >
+               <i class="fas fa-archive"></i> Archive
+             </button>
+             <button 
+                v-if="selectedLogo.isArchived"
+                class="btn-secondary unarchive-button" 
+                @click="unarchiveLogo(selectedLogo.id)"
+             >
+               <i class="fas fa-box-open"></i> Unarchive
+             </button>
+             <button 
+                class="btn-danger delete-button" 
+                @click="confirmDeleteLogo(selectedLogo)"
+                :title="selectedLogo.isArchived ? 'Delete Permanently' : 'Delete'"
+              >
+               <i class="fas fa-trash"></i> {{ selectedLogo.isArchived ? 'Delete Permanently' : 'Delete' }}
+             </button>
+          </div>
         </div>
-        
-        <div v-else class="logo-grid">
-          <div 
-            v-for="logo in filteredLogos" 
-            :key="logo.id" 
-            class="logo-card"
-            @click="selectLogo(logo)"
-          >
-            <div class="logo-preview">
-              <img :src="logo.previewUrl" :alt="logo.name" />
-            </div>
-            <div class="logo-info">
-              <h4>{{ logo.name }}</h4>
-              <p>{{ logo.description }}</p>
-              <div class="logo-tags">
-                <span v-for="tag in logo.tags" :key="tag" class="tag">{{ tag }}</span>
-              </div>
-            </div>
-          </div>
+        <div v-else class="no-selection-state">
+          <p>Select a logo from the grid to see details and preview.</p>
         </div>
       </div>
     </div>
     
-    <!-- Logo Editor Modal -->
-    <div v-if="showEditor" class="modal-overlay" @click="closeEditor">
-      <div class="modal-content logo-editor" @click.stop>
-        <div class="editor-header">
-          <h3>{{ editingLogo ? 'Edit Logo' : 'Create New Logo' }}</h3>
-          <button class="close-button" @click="closeEditor">×</button>
-        </div>
-        <div class="editor-body">
-          <div class="form-group">
-            <label for="logo-name">Logo Name</label>
-            <input id="logo-name" type="text" v-model="logoForm.name" placeholder="Enter logo name" />
-          </div>
-          <div class="form-group">
-            <label for="logo-description">Description</label>
-            <textarea id="logo-description" v-model="logoForm.description" placeholder="Enter logo description"></textarea>
-          </div>
-          <div class="form-group">
-            <label for="logo-category">Category</label>
-            <select id="logo-category" v-model="logoForm.category">
-              <option v-for="category in categories" :key="category.id" :value="category.id">
-                {{ category.name }}
-              </option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label>Tags</label>
-            <div class="tag-selector">
-              <span 
-                v-for="tag in tags" 
-                :key="tag.id"
-                class="tag"
-                :class="{ active: logoForm.tags.includes(tag.id) }"
-                @click="toggleFormTag(tag.id)"
-              >
-                {{ tag.name }}
-              </span>
-            </div>
-          </div>
-          <div class="form-group">
-            <label>Logo Preview</label>
-            <div class="logo-preview-area">
-              <div v-if="!logoForm.previewUrl" class="upload-placeholder" @click="uploadLogo">
-                <span class="icon">↑</span>
-                <p>Click to upload logo</p>
-              </div>
-              <img v-else :src="logoForm.previewUrl" alt="Logo preview" />
-            </div>
-          </div>
-        </div>
-        <div class="editor-footer">
-          <button class="secondary-button" @click="closeEditor">Cancel</button>
-          <button class="primary-button" @click="saveLogo">Save Logo</button>
-        </div>
-      </div>
-    </div>
+    <!-- Hidden File Input (kept for reference, using Tauri dialog) -->
+    <input 
+        type="file" 
+        ref="fileInputRef" 
+        @change="handleFilesSelected" 
+        multiple 
+        accept="image/png, image/jpeg, image/gif, image/svg+xml, image/webp" 
+        style="display: none;"
+      />
   </div>
 </template>
 
 <script>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { invoke } from '@tauri-apps/api/tauri';
+import { open } from '@tauri-apps/api/dialog';
+import { confirm } from '@tauri-apps/api/dialog';
+import { listen } from '@tauri-apps/api/event';
+import { type } from '@tauri-apps/api/os';
 
 export default {
   name: 'Logos',
   setup() {
-    // State
+    const allLogos = ref([]);
     const searchQuery = ref('');
-    const selectedCategory = ref('all');
-    const selectedTags = ref([]);
-    const showEditor = ref(false);
-    const editingLogo = ref(null);
-    
-    // Form state
-    const logoForm = ref({
-      name: '',
-      description: '',
-      category: 'all',
-      tags: [],
-      previewUrl: null
-    });
-    
-    // Mock data
-    const categories = ref([
-      { id: 'all', name: 'All Logos', count: 0 },
-      { id: 'events', name: 'Events', count: 0 },
-      { id: 'brands', name: 'Brands', count: 0 },
-      { id: 'custom', name: 'Custom', count: 0 }
-    ]);
-    
-    const tags = ref([
-      { id: 'event', name: 'Event' },
-      { id: 'brand', name: 'Brand' },
-      { id: 'custom', name: 'Custom' },
-      { id: 'scheduled', name: 'Scheduled' },
-      { id: 'active', name: 'Active' }
-    ]);
-    
-    const logos = ref([]);
-    
-    // Computed
+    const selectedLogo = ref(null);
+    const isLoading = ref(false);
+    const error = ref(null);
+    const fileInputRef = ref(null); 
+    const showArchived = ref(false);
+    const isDraggingOver = ref(false);
+
+    let unlistenDrop = null;
+    let unlistenHover = null;
+    let unlistenCancel = null;
+
+    // --- Data Fetching ---
+    const fetchLogos = async () => {
+      isLoading.value = true;
+      error.value = null;
+      selectedLogo.value = null; 
+      try {
+        // *** TODO: Replace with actual Tauri command ***
+        // const logosFromBackend = await invoke('fetch_logos', { includeArchived: true }); // Fetch all
+        // allLogos.value = logosFromBackend;
+        
+        // Dummy data for now
+        allLogos.value = [
+          { id: 'l1', name: 'Main Event Logo', fileName: 'event_logo.png', thumbnailUrl: './assets/VJToolsRounded.ico', fullUrl: './assets/VJToolsRounded.ico', isArchived: false },
+          { id: 'l2', name: 'Sponsor 1', fileName: 'sponsor_a.svg', thumbnailUrl: './assets/VJToolsRounded.ico', fullUrl: './assets/VJToolsRounded.ico', isArchived: false },
+          { id: 'l3', name: 'Sponsor 2 Wide (Old)', fileName: 'sponsor_b_wide_old.png', thumbnailUrl: './assets/VJToolsRounded.ico', fullUrl: './assets/VJToolsRounded.ico', isArchived: true }, // Archived example
+          { id: 'l4', name: 'Artist Logo', fileName: 'artist.png', thumbnailUrl: './assets/VJToolsRounded.ico', fullUrl: './assets/VJToolsRounded.ico', isArchived: false },
+          { id: 'l5', name: 'Outdated Branding', fileName: 'old_brand.svg', thumbnailUrl: './assets/VJToolsRounded.ico', fullUrl: './assets/VJToolsRounded.ico', isArchived: true }, // Archived example
+        ];
+        console.log('Fetched logos (dummy):', allLogos.value);
+
+      } catch (err) {
+        console.error('Error fetching logos:', err);
+        error.value = err.message || 'Failed to load logos.';
+      } finally {
+        isLoading.value = false;
+      }
+    };
+
+    onMounted(fetchLogos);
+
+    // --- Filtering & Selection ---
     const filteredLogos = computed(() => {
-      let result = [...logos.value];
+      let logos = allLogos.value;
+      
+      // Filter by archive status
+      if (!showArchived.value) {
+          logos = logos.filter(logo => !logo.isArchived);
+      }
       
       // Filter by search query
       if (searchQuery.value) {
-        const query = searchQuery.value.toLowerCase();
-        result = result.filter(logo => 
-          logo.name.toLowerCase().includes(query) || 
-          logo.description.toLowerCase().includes(query)
+        const lowerQuery = searchQuery.value.toLowerCase();
+        logos = logos.filter(logo => 
+          logo.name.toLowerCase().includes(lowerQuery) ||
+          logo.fileName.toLowerCase().includes(lowerQuery)
         );
       }
-      
-      // Filter by category
-      if (selectedCategory.value !== 'all') {
-        result = result.filter(logo => logo.category === selectedCategory.value);
-      }
-      
-      // Filter by tags
-      if (selectedTags.value.length > 0) {
-        result = result.filter(logo => 
-          selectedTags.value.every(tagId => 
-            logo.tags.includes(tagId)
-          )
-        );
-      }
-      
-      return result;
+      return logos;
     });
-    
-    // Methods
-    const createNewLogo = () => {
-      editingLogo.value = null;
-      logoForm.value = {
-        name: '',
-        description: '',
-        category: 'all',
-        tags: [],
-        previewUrl: null
-      };
-      showEditor.value = true;
+
+    const selectLogoForPreview = (logo) => {
+      selectedLogo.value = { ...logo }; // Clone 
+      console.log('Selected logo:', selectedLogo.value)
+    };
+
+    // --- Logo Actions ---
+    const triggerAddLogo = () => {
+       open({
+         multiple: true,
+         filters: [{
+           name: 'Images',
+           extensions: ['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp']
+         }]
+       }).then(selectedPaths => {
+         if (selectedPaths && selectedPaths.length > 0) {
+           addLogos(selectedPaths);
+         }
+       }).catch(err => {
+         console.error("Error opening file dialog:", err);
+       });
     };
     
-    const importLogo = () => {
-      // This would open a file dialog in a real implementation
-      console.log('Import logo');
-    };
-    
-    const selectLogo = (logo) => {
-      editingLogo.value = logo;
-      logoForm.value = {
-        name: logo.name,
-        description: logo.description,
-        category: logo.category,
-        tags: [...logo.tags],
-        previewUrl: logo.previewUrl
-      };
-      showEditor.value = true;
-    };
-    
-    const closeEditor = () => {
-      showEditor.value = false;
-      editingLogo.value = null;
-    };
-    
-    const toggleTag = (tagId) => {
-      const index = selectedTags.value.indexOf(tagId);
-      if (index === -1) {
-        selectedTags.value.push(tagId);
-      } else {
-        selectedTags.value.splice(index, 1);
+    const addLogos = async (paths) => {
+      const imageExtensions = ['.png', '.jpg', '.jpeg', '.gif', '.svg', '.webp'];
+      const validImagePaths = paths.filter(path => 
+         imageExtensions.some(ext => path.toLowerCase().endsWith(ext))
+      );
+      
+      if (validImagePaths.length === 0) {
+          console.log("No valid image files found in dropped/selected items.");
+          return;
       }
-    };
-    
-    const toggleFormTag = (tagId) => {
-      const index = logoForm.value.tags.indexOf(tagId);
-      if (index === -1) {
-        logoForm.value.tags.push(tagId);
-      } else {
-        logoForm.value.tags.splice(index, 1);
-      }
-    };
-    
-    const uploadLogo = () => {
-      // This would open a file dialog in a real implementation
-      console.log('Upload logo');
-      // For demo purposes, set a mock preview URL
-      logoForm.value.previewUrl = 'https://via.placeholder.com/150';
-    };
-    
-    const saveLogo = () => {
-      if (editingLogo.value) {
-        // Update existing logo
-        const index = logos.value.findIndex(l => l.id === editingLogo.value.id);
-        if (index !== -1) {
-          logos.value[index] = {
-            ...editingLogo.value,
-            name: logoForm.value.name,
-            description: logoForm.value.description,
-            category: logoForm.value.category,
-            tags: [...logoForm.value.tags],
-            previewUrl: logoForm.value.previewUrl
-          };
+      
+      isLoading.value = true; 
+      error.value = null;
+      console.log("Adding valid logos from paths:", validImagePaths);
+      try {
+        // *** TODO: Implement Tauri 'add_logo' command ***
+        for (const path of validImagePaths) {
+           console.log(`Invoking add_logo for: ${path}`);
+           // const newLogo = await invoke('add_logo', { filePath: path });
+           // allLogos.value.push(newLogo);
+           
+           // Dummy addition
+           const dummyId = `new_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+           const dummyName = path.split(/[\\/]/).pop() || 'New Logo'; 
+           allLogos.value.push({
+             id: dummyId,
+             name: dummyName,
+             fileName: dummyName,
+             thumbnailUrl: './assets/VJToolsRounded.ico', 
+             fullUrl: './assets/VJToolsRounded.ico', 
+             isArchived: false 
+           });
         }
-      } else {
-        // Create new logo
-        const newLogo = {
-          id: Date.now().toString(),
-          name: logoForm.value.name,
-          description: logoForm.value.description,
-          category: logoForm.value.category,
-          tags: [...logoForm.value.tags],
-          previewUrl: logoForm.value.previewUrl,
-          createdAt: new Date().toISOString()
-        };
-        logos.value.push(newLogo);
+        // await fetchLogos(); // Re-fetch if backend updated centrally
+
+      } catch (err) {
+        console.error('Error adding logo(s):', err);
+        error.value = err.message || 'Failed to add logo(s).';
+      } finally {
+         isLoading.value = false;
       }
-      
-      // Update category counts
-      updateCategoryCounts();
-      
-      // Close editor
-      closeEditor();
     };
     
-    const updateCategoryCounts = () => {
-      categories.value.forEach(category => {
-        if (category.id === 'all') {
-          category.count = logos.value.length;
+    const updateLogoName = async (logoToUpdate) => {
+        if (logoToUpdate.isArchived) return; 
+        console.log("Attempting to update name for logo:", logoToUpdate.id, "New name:", logoToUpdate.name);
+         // *** TODO: Implement Tauri 'update_logo_metadata' command ***
+         try {
+            // await invoke('update_logo_metadata', { logoId: logoToUpdate.id, updates: { name: logoToUpdate.name } });
+            const index = allLogos.value.findIndex(logo => logo.id === logoToUpdate.id);
+            if (index !== -1) {
+                allLogos.value[index].name = logoToUpdate.name;
+            }
+         } catch (err) {
+             console.error('Error updating logo name:', err);
+             error.value = "Failed to update logo name.";
+             const index = allLogos.value.findIndex(logo => logo.id === logoToUpdate.id);
+             if (index !== -1 && selectedLogo.value) selectedLogo.value.name = allLogos.value[index].name; // Revert UI
+         }
+    };
+
+    const archiveLogo = async (logoId) => {
+      console.log(`Archiving logo: ${logoId}`);
+       // *** TODO: Implement Tauri 'update_logo_status' command ***
+       try {
+          // await invoke('update_logo_status', { logoId: logoId, status: 'archived' });
+          const index = allLogos.value.findIndex(logo => logo.id === logoId);
+          if (index !== -1) {
+              allLogos.value[index].isArchived = true;
+              if (selectedLogo.value && selectedLogo.value.id === logoId) {
+                  selectedLogo.value.isArchived = true;
+              }
+          }
+       } catch (err) {
+          console.error('Error archiving logo:', err);
+          error.value = "Failed to archive logo.";
+       }
+    };
+    
+    const unarchiveLogo = async (logoId) => {
+       console.log(`Unarchiving logo: ${logoId}`);
+       // *** TODO: Implement Tauri 'update_logo_status' command ***
+       try {
+          // await invoke('update_logo_status', { logoId: logoId, status: 'active' });
+          const index = allLogos.value.findIndex(logo => logo.id === logoId);
+          if (index !== -1) {
+              allLogos.value[index].isArchived = false;
+              if (selectedLogo.value && selectedLogo.value.id === logoId) {
+                  selectedLogo.value.isArchived = false;
+              }
+          }
+       } catch (err) {
+          console.error('Error unarchiving logo:', err);
+          error.value = "Failed to unarchive logo.";
+       }
+    };
+
+    const confirmDeleteLogo = async (logoToDelete) => {
+      if (!logoToDelete) return;
+      const isPermanent = logoToDelete.isArchived;
+      const message = isPermanent 
+          ? `Permanently delete the archived logo "${logoToDelete.name}"? This cannot be undone.`
+          : `Delete the logo "${logoToDelete.name}"? It will be moved to the archive.`;
+      const confirmationTitle = isPermanent ? 'Confirm Permanent Deletion' : 'Confirm Deletion';
+      
+      const yes = await confirm(message, { title: confirmationTitle, type: 'warning' });
+         
+      if (yes) {
+        if (isPermanent) {
+          deleteLogoPermanently(logoToDelete.id);
         } else {
-          category.count = logos.value.filter(logo => logo.category === category.id).length;
+          archiveLogo(logoToDelete.id);
         }
-      });
+      }
     };
-    
-    // Initialize with mock data
-    onMounted(() => {
-      // Add some mock logos
-      logos.value = [
-        {
-          id: '1',
-          name: 'Summer Festival 2023',
-          description: 'Main logo for the summer festival event',
-          category: 'events',
-          tags: ['event', 'scheduled'],
-          previewUrl: 'https://via.placeholder.com/150',
-          createdAt: '2023-06-01T12:00:00Z'
-        },
-        {
-          id: '2',
-          name: 'VJ.Tools Brand',
-          description: 'Official VJ.Tools brand logo',
-          category: 'brands',
-          tags: ['brand'],
-          previewUrl: 'https://via.placeholder.com/150',
-          createdAt: '2023-05-15T10:30:00Z'
-        },
-        {
-          id: '3',
-          name: 'Custom Client Logo',
-          description: 'Custom logo for client project',
-          category: 'custom',
-          tags: ['custom', 'active'],
-          previewUrl: 'https://via.placeholder.com/150',
-          createdAt: '2023-07-10T14:45:00Z'
+
+    const deleteLogoPermanently = async (logoId) => {
+      isLoading.value = true;
+      error.value = null;
+      try {
+        // *** TODO: Implement Tauri 'delete_logo_permanently' command ***
+        console.log(`Permanently deleting logo with ID: ${logoId}`);
+        allLogos.value = allLogos.value.filter(logo => logo.id !== logoId);
+        if (selectedLogo.value && selectedLogo.value.id === logoId) {
+            selectedLogo.value = null; 
         }
-      ];
+      } catch (err) {
+        console.error('Error permanently deleting logo:', err);
+        error.value = err.message || 'Failed to permanently delete logo.';
+      } finally {
+        isLoading.value = false;
+      }
+    };
+
+    // --- Lifecycle Hooks for Drag & Drop Listener ---
+    onMounted(async () => {
+      await fetchLogos(); // Fetch initial data
       
-      // Update category counts
-      updateCategoryCounts();
+      console.log("Setting up file drop listeners...");
+      try {
+        // Listen for files being dropped onto the window
+        unlistenDrop = await listen('tauri://file-drop', event => {
+          console.log('File(s) dropped:', event.payload);
+          isDraggingOver.value = false; // Ensure drag indicator is turned off
+          addLogos(event.payload); // Pass the array of paths
+        });
+        
+        // Listen for hover events for UI feedback
+        unlistenHover = await listen('tauri://file-drop-hover', () => {
+            console.log("File drag hover START");
+            isDraggingOver.value = true;
+        });
+        
+        // Listen for drag cancelled or end (leaving window)
+        unlistenCancel = await listen('tauri://file-drop-cancelled', () => {
+            console.log("File drag hover END");
+            isDraggingOver.value = false;
+        });
+
+      } catch(e) {
+          console.error("Failed to set up file drop listeners:", e);
+          error.value = "Could not initialize file drag and drop.";
+      }
     });
-    
+
+    onUnmounted(() => {
+        console.log("Cleaning up file drop listeners...");
+      // Cleanup the listeners when the component is unmounted
+      if (unlistenDrop) unlistenDrop();
+      if (unlistenHover) unlistenHover();
+      if (unlistenCancel) unlistenCancel();
+    });
+
+    // --- Keep handleFilesSelected if needed for fallback/other purposes ---
+    const handleFilesSelected = (event) => {
+        console.warn("handleFilesSelected called, but OS drag-and-drop or Tauri dialog are preferred.");
+        const files = event.target.files;
+        if (files && files.length > 0) {
+            // If you need to handle File objects instead of paths:
+            // 1. You might need to read them using FileReader
+            // 2. Or pass the FileList to a backend function that can handle them.
+            // For now, this function does nothing practical with OS D&D setup.
+            console.log("Files selected via input:", files);
+        }
+        if (fileInputRef.value) fileInputRef.value.value = null;
+    };
+
     return {
+      allLogos,
       searchQuery,
-      selectedCategory,
-      selectedTags,
-      showEditor,
-      editingLogo,
-      logoForm,
-      categories,
-      tags,
-      logos,
       filteredLogos,
-      createNewLogo,
-      importLogo,
-      selectLogo,
-      closeEditor,
-      toggleTag,
-      toggleFormTag,
-      uploadLogo,
-      saveLogo
+      selectedLogo,
+      selectLogoForPreview,
+      isLoading,
+      error,
+      triggerAddLogo,
+      handleFilesSelected, 
+      fileInputRef,
+      confirmDeleteLogo,
+      updateLogoName,
+      showArchived, 
+      archiveLogo, 
+      unarchiveLogo,
+      isDraggingOver
     };
   }
 };
 </script>
 
 <style scoped>
-.logos-container {
-  padding: 20px;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-}
+/* Keep previous styles and add/modify these */
 
-.logos-header {
+.grid-toolbar {
+  /* Adjust layout for checkbox */
   display: flex;
-  justify-content: space-between;
+  flex-wrap: wrap; /* Allow wrapping on smaller screens */
   align-items: center;
-  margin-bottom: 20px;
-}
-
-.header-actions {
-  display: flex;
   gap: 10px;
+  margin-bottom: 1rem;
+  flex-shrink: 0;
 }
 
-.action-button {
+.show-archived-toggle {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 16px;
-  background-color: var(--background-color);
-  border: 1px solid var(--border-color);
-  border-radius: 4px;
+  gap: 5px;
+  margin-left: auto; /* Push to the right */
+  white-space: nowrap;
   cursor: pointer;
-  transition: all 0.2s;
 }
 
-.action-button:hover {
-  background-color: var(--primary-color);
+.add-button {
+  margin-left: 10px; /* Add space if not wrapping */
+}
+
+.logo-grid-item {
+  position: relative; /* For badge positioning */
+  /* ... keep existing styles ... */
+}
+
+.logo-grid-item.archived {
+  opacity: 0.6;
+  /* filter: grayscale(80%); */ /* Optional: make it grayscale */
+}
+
+.logo-grid-item.archived:hover {
+  opacity: 0.8;
+  /* filter: grayscale(0%); */
+}
+
+.archived-badge {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  background-color: rgba(0, 0, 0, 0.6);
+  color: #ccc;
+  padding: 2px 5px;
+  border-radius: 3px;
+  font-size: 0.7rem;
+}
+
+.preview-image-container {
+  position: relative; /* For overlay badge */
+  /* ... keep existing styles ... */
+}
+
+.archived-overlay-badge {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  background-color: var(--error-color);
   color: white;
-}
-
-.logos-content {
-  display: flex;
-  gap: 20px;
-  flex: 1;
-  overflow: hidden;
-}
-
-.logos-sidebar {
-  width: 250px;
-  background-color: white;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  padding: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-  overflow-y: auto;
-}
-
-.search-box input {
-  width: 100%;
-  padding: 8px 12px;
-  border: 1px solid var(--border-color);
+  padding: 3px 8px;
+  font-size: 0.8rem;
+  font-weight: bold;
   border-radius: 4px;
-  font-size: 14px;
+  z-index: 1;
 }
 
-.logo-categories h3,
-.logo-tags h3 {
-  font-size: 16px;
-  margin-bottom: 10px;
-  color: var(--text-color);
+.preview-image.archived {
+   opacity: 0.7;
 }
 
-.logo-categories ul {
-  list-style: none;
-  padding: 0;
+.preview-info {
+  /* ... keep existing styles ... */
 }
 
-.logo-categories li {
-  padding: 8px 12px;
-  cursor: pointer;
-  border-radius: 4px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+.preview-name-input:disabled {
+  background-color: transparent;
+  border-color: transparent;
+  color: rgba(var(--text-color-rgb), 0.8); /* Slightly dimmer */
+  cursor: not-allowed;
 }
 
-.logo-categories li:hover {
-  background-color: var(--background-color);
-}
-
-.logo-categories li.active {
-  background-color: var(--primary-color);
-  color: white;
-}
-
-.count {
-  background-color: var(--background-color);
-  padding: 2px 6px;
-  border-radius: 10px;
-  font-size: 12px;
-}
-
-.logo-categories li.active .count {
-  background-color: rgba(255, 255, 255, 0.2);
-}
-
-.tag-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.tag {
-  padding: 4px 8px;
-  background-color: var(--background-color);
-  border-radius: 4px;
-  font-size: 12px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.tag:hover {
-  background-color: var(--primary-color);
-  color: white;
-}
-
-.tag.active {
-  background-color: var(--primary-color);
-  color: white;
-}
-
-.logos-main {
-  flex: 1;
-  background-color: white;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  padding: 20px;
-  overflow-y: auto;
-}
-
-.empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-  color: var(--text-light);
+.archived-status-text {
+  color: var(--error-color); /* Or a warning color */
+  font-size: 0.9rem;
+  font-weight: bold;
   text-align: center;
+  margin-top: 0.5rem;
 }
 
-.empty-icon {
-  margin-bottom: 20px;
+.preview-actions {
+  /* ... keep existing styles ... */
+  justify-content: space-between; /* Space out buttons */
 }
 
-.empty-state h3 {
-  margin-bottom: 10px;
-  color: var(--text-color);
+.delete-button {
+  /* Already styled as btn-danger */
 }
 
-.empty-state p {
-  margin-bottom: 20px;
-  max-width: 400px;
+.archive-button,
+.unarchive-button {
+  /* Already styled as btn-secondary */
 }
 
-.primary-button {
-  padding: 10px 20px;
-  background-color: var(--primary-color);
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: background-color 0.2s;
+
+/* Responsive Adjustments */
+@media (max-width: 600px) {
+   /* ... keep previous 600px styles ... */
+   .grid-toolbar {
+       flex-direction: column;
+       align-items: stretch;
+   }
+   .show-archived-toggle {
+       margin-left: 0; /* Align left when stacked */
+       justify-content: center;
+       padding: 5px 0;
+   }
+   .add-button {
+      margin-left: 0;
+   }
 }
 
-.primary-button:hover {
-  background-color: var(--secondary-color);
-}
-
-.secondary-button {
-  padding: 10px 20px;
-  background-color: var(--background-color);
-  color: var(--text-color);
-  border: 1px solid var(--border-color);
-  border-radius: 4px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.secondary-button:hover {
-  background-color: var(--border-color);
-}
-
-.logo-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 20px;
-}
-
-.logo-card {
-  background-color: var(--background-color);
-  border-radius: 8px;
-  overflow: hidden;
-  cursor: pointer;
-  transition: transform 0.2s, box-shadow 0.2s;
-}
-
-.logo-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
-}
-
-.logo-preview {
-  height: 150px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background-color: white;
-}
-
-.logo-preview img {
-  max-width: 100%;
-  max-height: 100%;
-  object-fit: contain;
-}
-
-.logo-info {
-  padding: 12px;
-}
-
-.logo-info h4 {
-  margin-bottom: 5px;
-  color: var(--text-color);
-}
-
-.logo-info p {
-  font-size: 12px;
-  color: var(--text-light);
-  margin-bottom: 10px;
-}
-
-.logo-editor {
-  width: 600px;
-  max-width: 90vw;
-}
-
-.editor-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 16px;
-  border-bottom: 1px solid var(--border-color);
-}
-
-.close-button {
-  background: none;
-  border: none;
-  font-size: 24px;
-  cursor: pointer;
-  color: var(--text-light);
-}
-
-.editor-body {
-  padding: 16px;
-  max-height: 70vh;
-  overflow-y: auto;
-}
-
-.form-group {
-  margin-bottom: 16px;
-}
-
-.form-group label {
-  display: block;
-  margin-bottom: 8px;
-  font-weight: 500;
-}
-
-.form-group input,
-.form-group textarea,
-.form-group select {
-  width: 100%;
-  padding: 8px 12px;
-  border: 1px solid var(--border-color);
-  border-radius: 4px;
-  font-size: 14px;
-}
-
-.form-group textarea {
-  height: 100px;
-  resize: vertical;
-}
-
-.tag-selector {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.logo-preview-area {
-  height: 200px;
-  border: 1px dashed var(--border-color);
-  border-radius: 4px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-}
-
-.upload-placeholder {
+/* Left Column */
+.logo-grid-section {
+  flex: 1; /* Allow grid to take available space */
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  height: 100%;
-  cursor: pointer;
+  overflow: hidden; /* Contain grid */
+  min-width: 300px; /* Minimum width */
+  border: 2px dashed transparent; /* Add base for drag-over style */
+  transition: border-color 0.3s ease, background-color 0.3s ease; /* Animate feedback */
 }
 
-.upload-placeholder .icon {
-  font-size: 24px;
-  margin-bottom: 8px;
+.logo-grid-section.dragging-over {
+  border-color: var(--primary-color); /* Highlight border */
+  background-color: rgba(var(--primary-color-rgb), 0.1); /* Highlight background */
 }
 
-.editor-footer {
-  padding: 16px;
-  border-top: 1px solid var(--border-color);
+.grid-toolbar {
   display: flex;
-  justify-content: flex-end;
+  flex-wrap: wrap; /* Allow wrapping on smaller screens */
+  align-items: center;
   gap: 10px;
+  margin-bottom: 1rem;
+  flex-shrink: 0;
 }
 
-.modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-}
-
-.modal-content {
-  background-color: white;
-  border-radius: 8px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-  max-height: 90vh;
-  overflow-y: auto;
-}
 </style> 

@@ -7,7 +7,7 @@
       <p class="section-description">Enable or disable features to optimize application performance.</p>
       
       <div class="modules-list">
-        <div v-for="(module, id) in availableModules" :key="id" class="module-item">
+        <div v-for="module in availableModules" :key="module.id" class="module-item">
           <div class="module-info">
             <div class="module-header">
               <h4>{{ module.name }}</h4>
@@ -20,7 +20,7 @@
               <input 
                 type="checkbox" 
                 :checked="module.enabled" 
-                @change="toggleModule(id, $event.target.checked)"
+                @change="toggleModule(module.id)"  
                 :disabled="module.required"
               >
               <span class="toggle-slider"></span>
@@ -38,8 +38,8 @@
         <div class="form-group">
           <label for="theme">Theme</label>
           <select id="theme" v-model="settings.theme">
-            <option value="light">Light</option>
             <option value="dark">Dark</option>
+            <option value="light">Light</option> 
             <option value="system">System Default</option>
           </select>
         </div>
@@ -74,48 +74,50 @@
 
 <script>
 import { ref, onMounted } from 'vue';
-import ModuleManager from '../services/ModuleManager';
+import { useModuleManager } from '../services/ModuleManager';
 
 export default {
   name: 'Settings',
   setup() {
-    const availableModules = ref({});
+    const moduleManager = useModuleManager();
+    
+    const availableModules = moduleManager.modules;
+    
     const settings = ref({
-      theme: 'light',
+      theme: 'dark',
       language: 'en',
       startup: 'normal'
     });
     
-    // Load module settings
     onMounted(async () => {
-      await ModuleManager.init();
-      availableModules.value = ModuleManager.getAvailableModules();
+      await moduleManager.init();
+      document.documentElement.setAttribute('data-theme', settings.value.theme);
+      console.log('Settings.vue: Modules loaded:', availableModules.value);
     });
     
-    // Toggle a module
-    const toggleModule = async (moduleId, enabled) => {
-      await ModuleManager.toggleModule(moduleId, enabled);
+    const toggleModule = async (moduleId) => {
+      const module = availableModules.value.find(m => m.id === moduleId);
+      if (module) {
+        await moduleManager.toggleModule(moduleId);
+      }
     };
     
-    // Save application settings
     const saveSettings = async () => {
       try {
-        // In a real app, this would save to storage
         console.log('Saving settings:', settings.value);
-        // Apply theme
         document.documentElement.setAttribute('data-theme', settings.value.theme);
       } catch (err) {
         console.error('Error saving settings:', err);
       }
     };
     
-    // Reset settings to defaults
     const resetSettings = () => {
       settings.value = {
-        theme: 'light',
+        theme: 'dark',
         language: 'en',
         startup: 'normal'
       };
+      document.documentElement.setAttribute('data-theme', settings.value.theme);
     };
     
     return {
@@ -132,19 +134,31 @@ export default {
 <style scoped>
 .settings-container {
   padding: 20px;
+  color: var(--text-color);
+}
+
+h2 {
+  margin-bottom: 1.5rem;
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 0.5rem;
 }
 
 .settings-section {
   margin-bottom: 2rem;
-  background-color: white;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  background-color: var(--secondary-color);
+  border-radius: var(--border-radius);
   padding: 1.5rem;
+  border: 1px solid var(--border-color);
+}
+
+h3 {
+  margin-bottom: 0.5rem;
 }
 
 .section-description {
-  color: var(--text-light);
+  color: rgba(var(--text-color-rgb), 0.7);
   margin-bottom: 1.5rem;
+  font-size: 0.9rem;
 }
 
 .modules-list {
@@ -158,7 +172,7 @@ export default {
   justify-content: space-between;
   align-items: center;
   padding: 1rem;
-  background-color: #f9f9f9;
+  background-color: var(--background-color);
   border-radius: 6px;
   border: 1px solid var(--border-color);
 }
@@ -183,13 +197,13 @@ export default {
   font-size: 0.7rem;
   background-color: var(--primary-color);
   color: white;
-  padding: 0.1rem 0.3rem;
+  padding: 0.1rem 0.4rem;
   border-radius: 3px;
 }
 
 .module-description {
   font-size: 0.9rem;
-  color: var(--text-light);
+  color: rgba(var(--text-color-rgb), 0.7);
   margin: 0;
 }
 
@@ -214,7 +228,7 @@ export default {
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: #ccc;
+  background-color: rgba(var(--text-color-rgb), 0.3);
   transition: .4s;
   border-radius: 24px;
 }
@@ -226,7 +240,7 @@ export default {
   width: 16px;
   left: 4px;
   bottom: 4px;
-  background-color: white;
+  background-color: var(--text-color);
   transition: .4s;
   border-radius: 50%;
 }
@@ -248,7 +262,7 @@ input:checked + .toggle-slider:before {
 .settings-form {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 1.5rem;
 }
 
 .form-group {
@@ -262,10 +276,12 @@ input:checked + .toggle-slider:before {
 }
 
 .form-group select {
-  padding: 0.5rem;
-  border-radius: 4px;
+  padding: 0.75rem;
+  border-radius: var(--border-radius);
   border: 1px solid var(--border-color);
-  background-color: white;
+  background-color: var(--background-color);
+  color: var(--text-color);
+  font-size: 1rem;
 }
 
 /* Action Buttons */
@@ -274,15 +290,17 @@ input:checked + .toggle-slider:before {
   justify-content: flex-end;
   gap: 1rem;
   margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border-color);
 }
 
 .btn-primary, .btn-secondary {
-  padding: 0.5rem 1rem;
-  border-radius: 4px;
+  padding: 0.75rem 1.5rem;
+  border-radius: var(--border-radius);
   border: none;
   cursor: pointer;
   font-weight: 500;
-  transition: background-color 0.2s;
+  transition: background-color 0.2s, opacity 0.2s;
 }
 
 .btn-primary {
@@ -291,15 +309,16 @@ input:checked + .toggle-slider:before {
 }
 
 .btn-primary:hover {
-  background-color: var(--secondary-color);
+  opacity: 0.9;
 }
 
 .btn-secondary {
-  background-color: #e0e0e0;
-  color: #333;
+  background-color: var(--secondary-color);
+  color: var(--text-color);
+  border: 1px solid var(--border-color);
 }
 
 .btn-secondary:hover {
-  background-color: #d0d0d0;
+  background-color: rgba(var(--text-color-rgb), 0.1);
 }
 </style> 

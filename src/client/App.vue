@@ -1,49 +1,34 @@
 <template>
-  <div id="app">
+  <div class="app-container">
     <TitleBar />
-    <div class="app-container">
-      <aside class="sidebar" :class="{ collapsed: isSidebarCollapsed }">
+    <div class="main-content">
+      <div class="sidebar">
         <div class="logo">
-          <img src="./assets/VJtools.ico" alt="VJ.Tools Logo" />
-          <span class="logo-text">VJ.Tools</span>
+          <img src="./assets/VJToolsRounded.ico" alt="VJ.Tools Logo" />
         </div>
-        <nav class="nav-buttons">
+        <nav class="navigation">
           <button
             v-for="module in availableModules"
             :key="module.id"
             class="nav-button"
-            :class="{
-              active: currentModule === module.id,
-              disabled: !module.enabled && !module.required,
-              required: module.required
-            }"
+            :class="{ active: currentModule === module.id }"
             @click="selectModule(module.id)"
-            :disabled="!module.enabled && !module.required"
           >
             <i :class="module.icon"></i>
-            <span>{{ module.name }}</span>
+            <span class="nav-text">{{ module.name }}</span>
           </button>
         </nav>
-        <button class="settings-button" @click="showSettings = true">
-          <i class="fas fa-cog"></i>
-          <span>Settings</span>
-        </button>
-      </aside>
-      <main class="main-content">
+      </div>
+      <div class="content">
         <component
           v-if="currentModuleComponent"
           :is="currentModuleComponent"
-          @error="handleError"
+          class="module-content"
         />
-        <div v-else class="module-placeholder">
-          <h2>Select a Module</h2>
-          <p>Choose a module from the sidebar to get started.</p>
+        <div v-else class="loading">
+          <i class="fas fa-spinner fa-spin"></i>
+          <span>Loading module...</span>
         </div>
-      </main>
-    </div>
-    <div v-if="showSettings" class="modal-overlay" @click="showSettings = false">
-      <div class="modal-content" @click.stop>
-        <Settings @close="showSettings = false" />
       </div>
     </div>
   </div>
@@ -52,73 +37,60 @@
 <script>
 import { ref, computed, onMounted } from 'vue';
 import TitleBar from './components/TitleBar.vue';
-import Settings from './components/Settings.vue';
-import Logos from './components/Logos.vue';
-import OSC from './components/OSC.vue';
-import NDI from './components/NDI.vue';
-import Events from './components/Events.vue';
-import Messaging from './components/Messaging.vue';
 import { useModuleManager } from './services/ModuleManager';
 
 export default {
   name: 'App',
   components: {
-    TitleBar,
-    Settings,
-    Logos,
-    OSC,
-    NDI,
-    Events,
-    Messaging
+    TitleBar
   },
   setup() {
     const moduleManager = useModuleManager();
-    const currentModule = ref(null);
-    const showSettings = ref(false);
-    const isSidebarCollapsed = ref(false);
+    const currentModule = ref('nowPlaying');
     const error = ref(null);
 
-    const availableModules = computed(() => moduleManager.getAvailableModules());
+    const availableModules = computed(() => {
+      return moduleManager.modules.value.filter(module => module.enabled || module.required);
+    });
 
     const currentModuleComponent = computed(() => {
-      if (!currentModule.value) return null;
-      const module = availableModules.value.find(m => m.id === currentModule.value);
+      const module = moduleManager.modules.value.find(m => m.id === currentModule.value);
       return module ? module.component : null;
     });
 
     const selectModule = (moduleId) => {
-      const module = availableModules.value.find(m => m.id === moduleId);
-      if (module && (module.enabled || module.required)) {
-        currentModule.value = moduleId;
-      }
-    };
-
-    const handleError = (err) => {
-      error.value = err;
-      console.error('Module error:', err);
+      currentModule.value = moduleId;
     };
 
     onMounted(async () => {
+      console.log('App.vue: Mounting component...');
       try {
         await moduleManager.init();
-        // Select the first enabled module by default
-        const firstEnabledModule = availableModules.value.find(m => m.enabled || m.required);
-        if (firstEnabledModule) {
-          currentModule.value = firstEnabledModule.id;
+        console.log('App.vue: Module manager initialized.');
+        
+        const defaultModuleExists = availableModules.value.some(m => m.id === currentModule.value);
+        if (!defaultModuleExists) {
+            const firstAvailable = availableModules.value[0];
+            if (firstAvailable) {
+                currentModule.value = firstAvailable.id;
+            }
         }
+        
+        console.log('App.vue: Available modules:', availableModules.value);
+        console.log('App.vue: Current module ID:', currentModule.value);
+        console.log('App.vue: Current module component:', currentModuleComponent.value);
       } catch (err) {
-        handleError(err);
+        console.error('App.vue: Error during mount:', err);
+        error.value = err;
       }
     });
 
     return {
       currentModule,
-      showSettings,
-      isSidebarCollapsed,
       availableModules,
       currentModuleComponent,
       selectModule,
-      handleError
+      error
     };
   }
 };
@@ -126,19 +98,14 @@ export default {
 
 <style>
 :root {
-  --primary-color: #4a90e2;
-  --secondary-color: #2c3e50;
-  --background-color: #1a1a1a;
+  --primary-color: #2196f3;
+  --secondary-color: #1a1a1a;
+  --background-color: #121212;
   --text-color: #ffffff;
-  --border-color: #333333;
-  --hover-color: #2c3e50;
-  --active-color: #4a90e2;
-  --error-color: #e74c3c;
-  --success-color: #2ecc71;
-  --warning-color: #f1c40f;
-  --info-color: #3498db;
-  --border-radius: 12px;
-  --transition-speed: 0.3s;
+  --border-color: rgba(255, 255, 255, 0.1);
+  --error-color: #e81123;
+  --border-radius: 8px;
+  --transition-speed: 0.2s;
 }
 
 * {
@@ -148,207 +115,134 @@ export default {
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
   background-color: var(--background-color);
   color: var(--text-color);
-  line-height: 1.6;
-  overflow: hidden;
-}
-
-#app {
-  width: 100vw;
-  height: 100vh;
-  display: flex;
-  flex-direction: column;
-  background-color: var(--background-color);
-  border-radius: var(--border-radius);
-  overflow: hidden;
+  line-height: 1.5;
 }
 
 .app-container {
   display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.main-content {
+  display: flex;
   flex: 1;
   overflow: hidden;
-  border-radius: var(--border-radius);
-  background-color: var(--background-color);
 }
 
 .sidebar {
-  width: 250px;
-  min-width: 250px;
-  height: 100%;
+  width: 240px;
   background-color: var(--secondary-color);
-  padding: 1rem;
+  border-right: 1px solid var(--border-color);
   display: flex;
   flex-direction: column;
-  gap: 1rem;
-  border-right: 1px solid var(--border-color);
   transition: width var(--transition-speed);
 }
 
-.sidebar.collapsed {
-  width: 60px;
-  min-width: 60px;
-  padding: 1rem 0.5rem;
-}
-
 .logo {
+  padding: 20px;
   display: flex;
+  justify-content: center;
   align-items: center;
-  gap: 1rem;
-  padding: 1rem;
   border-bottom: 1px solid var(--border-color);
-  background-color: var(--background-color);
 }
 
 .logo img {
-  width: 32px;
-  height: 32px;
+  width: 48px;
+  height: 48px;
   object-fit: contain;
 }
 
-.logo-text {
-  font-size: 1.5rem;
-  font-weight: bold;
-  color: var(--text-color);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.nav-buttons {
+.navigation {
+  padding: 20px 0;
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
-  flex: 1;
+  gap: 8px;
 }
 
 .nav-button {
   display: flex;
   align-items: center;
-  gap: 1rem;
-  padding: 0.75rem 1rem;
+  gap: 12px;
+  padding: 12px 20px;
+  background: transparent;
   border: none;
-  border-radius: var(--border-radius);
-  background-color: transparent;
   color: var(--text-color);
   cursor: pointer;
   transition: background-color var(--transition-speed);
   text-align: left;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .nav-button:hover {
-  background-color: var(--hover-color);
+  background-color: rgba(255, 255, 255, 0.1);
 }
 
 .nav-button.active {
-  background-color: var(--active-color);
+  background-color: var(--primary-color);
 }
 
-.nav-button.disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+.nav-button i {
+  width: 20px;
+  text-align: center;
 }
 
-.nav-button.required {
-  opacity: 1;
-  cursor: not-allowed;
-}
-
-.main-content {
+.content {
   flex: 1;
-  padding: 2rem;
+  padding: 20px;
   overflow-y: auto;
+}
+
+.module-content {
+  background-color: var(--secondary-color);
+  border-radius: var(--border-radius);
+  padding: 20px;
+  height: 100%;
+}
+
+.loading {
   display: flex;
   flex-direction: column;
-  gap: 2rem;
-}
-
-.settings-button {
-  padding: 0.75rem 1rem;
-  border: none;
-  border-radius: var(--border-radius);
-  background-color: var(--secondary-color);
-  color: var(--text-color);
-  cursor: pointer;
-  transition: background-color var(--transition-speed);
-}
-
-.settings-button:hover {
-  background-color: var(--hover-color);
-}
-
-.modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: rgba(0, 0, 0, 0.5);
-  display: flex;
-  justify-content: center;
   align-items: center;
-  z-index: 1000;
+  justify-content: center;
+  gap: 16px;
+  height: 100%;
+  color: var(--text-color);
+  opacity: 0.7;
 }
 
-.modal-content {
-  background-color: var(--background-color);
-  padding: 2rem;
-  border-radius: var(--border-radius);
-  max-width: 90%;
-  max-height: 90vh;
-  overflow-y: auto;
-  position: relative;
-  border: 1px solid var(--border-color);
+.loading i {
+  font-size: 24px;
 }
 
-/* Responsive Design */
 @media (max-width: 768px) {
   .sidebar {
-    width: 60px;
-    min-width: 60px;
-    padding: 1rem 0.5rem;
+    width: 64px;
   }
 
-  .logo-text {
+  .nav-text {
     display: none;
   }
 
-  .nav-button span {
-    display: none;
+  .logo {
+    padding: 12px;
   }
 
-  .main-content {
-    padding: 1rem;
+  .logo img {
+    width: 32px;
+    height: 32px;
   }
-}
 
-@media (max-width: 480px) {
-  .modal-content {
-    width: 95%;
-    padding: 1rem;
+  .nav-button {
+    padding: 12px;
+    justify-content: center;
   }
-}
 
-/* Scrollbar Styling */
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-
-::-webkit-scrollbar-track {
-  background: var(--background-color);
-}
-
-::-webkit-scrollbar-thumb {
-  background: var(--secondary-color);
-  border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: var(--hover-color);
+  .nav-button i {
+    margin: 0;
+  }
 }
 </style> 

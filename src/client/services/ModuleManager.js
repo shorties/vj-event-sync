@@ -1,5 +1,6 @@
 import { ref } from 'vue';
 import { invoke } from '@tauri-apps/api/tauri';
+import NowPlaying from '../components/NowPlaying.vue';
 import Logos from '../components/Logos.vue';
 import OSC from '../components/OSC.vue';
 import NDI from '../components/NDI.vue';
@@ -9,6 +10,15 @@ import Settings from '../components/Settings.vue';
 
 // Module registry with icons
 const moduleRegistry = [
+  {
+    id: 'nowPlaying',
+    name: 'Now Playing',
+    description: 'View and manage the current logo playlist',
+    enabled: true,
+    required: true,
+    component: NowPlaying,
+    icon: 'fas fa-play-circle'
+  },
   {
     id: 'events',
     name: 'Events',
@@ -21,25 +31,16 @@ const moduleRegistry = [
   {
     id: 'messaging',
     name: 'Messaging',
-    description: 'Chat with other VJs',
+    description: 'Communication tools',
     enabled: true,
     required: true,
     component: Messaging,
     icon: 'fas fa-comments'
   },
   {
-    id: 'settings',
-    name: 'Settings',
-    description: 'Configure application settings',
-    enabled: true,
-    required: true,
-    component: Settings,
-    icon: 'fas fa-cog'
-  },
-  {
     id: 'logos',
     name: 'Logos',
-    description: 'Manage and sync logos',
+    description: 'Logo management',
     enabled: true,
     required: false,
     component: Logos,
@@ -48,20 +49,29 @@ const moduleRegistry = [
   {
     id: 'osc',
     name: 'OSC',
-    description: 'OSC control and monitoring',
+    description: 'OSC control',
     enabled: true,
     required: false,
     component: OSC,
-    icon: 'fas fa-broadcast-tower'
+    icon: 'fas fa-network-wired'
   },
   {
     id: 'ndi',
     name: 'NDI',
-    description: 'NDI video streaming',
+    description: 'NDI streaming',
     enabled: true,
     required: false,
     component: NDI,
-    icon: 'fas fa-video'
+    icon: 'fas fa-broadcast-tower'
+  },
+  {
+    id: 'settings',
+    name: 'Settings',
+    description: 'Application settings',
+    enabled: true,
+    required: true,
+    component: Settings,
+    icon: 'fas fa-cog'
   }
 ];
 
@@ -77,46 +87,42 @@ export function useModuleManager() {
     state.loading.value = true;
     state.error.value = null;
     try {
-      // Load module settings from backend
-      const settings = await invoke('get_module_settings');
-      
-      // Update module states based on loaded settings
-      state.modules.value = state.modules.value.map(module => ({
-        ...module,
-        enabled: settings[module.id] ?? module.enabled
-      }));
-    } catch (error) {
-      state.error.value = error;
-      console.error('Failed to initialize module manager:', error);
+      // Load saved module states from storage
+      const savedStates = await window.__TAURI__.storage.get('moduleStates');
+      if (savedStates) {
+        state.modules.value = state.modules.value.map(module => ({
+          ...module,
+          enabled: module.required ? true : (savedStates[module.id] ?? module.enabled)
+        }));
+      }
+    } catch (err) {
+      console.error('Failed to load module states:', err);
+      state.error.value = err;
     } finally {
       state.loading.value = false;
     }
   };
 
-  const getAvailableModules = () => {
-    return state.modules.value;
+  const saveModuleStates = async () => {
+    try {
+      const states = state.modules.value.reduce((acc, module) => {
+        if (!module.required) {
+          acc[module.id] = module.enabled;
+        }
+        return acc;
+      }, {});
+      await window.__TAURI__.storage.set('moduleStates', states);
+    } catch (err) {
+      console.error('Failed to save module states:', err);
+      state.error.value = err;
+    }
   };
 
-  const toggleModule = async (moduleId, enabled) => {
+  const toggleModule = async (moduleId) => {
     const module = state.modules.value.find(m => m.id === moduleId);
-    if (!module) return;
-
-    if (module.required) {
-      console.warn(`Cannot toggle required module: ${moduleId}`);
-      return;
-    }
-
-    try {
-      // Update backend
-      await invoke('save_module_settings', {
-        settings: { [moduleId]: enabled }
-      });
-
-      // Update local state
-      module.enabled = enabled;
-    } catch (error) {
-      console.error(`Failed to toggle module ${moduleId}:`, error);
-      throw error;
+    if (module && !module.required) {
+      module.enabled = !module.enabled;
+      await saveModuleStates();
     }
   };
 
@@ -125,12 +131,17 @@ export function useModuleManager() {
     return module ? module.enabled : false;
   };
 
+  const getModule = (moduleId) => {
+    return state.modules.value.find(m => m.id === moduleId);
+  };
+
   return {
+    modules: state.modules,
+    loading: state.loading,
+    error: state.error,
     init,
-    getAvailableModules,
     toggleModule,
     isModuleEnabled,
-    loading: state.loading,
-    error: state.error
+    getModule
   };
 } 
