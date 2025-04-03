@@ -240,36 +240,58 @@ fn main() {
 
             // Register keyboard shortcuts
             let app_handle_clone = app_handle.clone();
-            app.global_shortcut_manager()
-                .register("CommandOrControl+S", move || {
+            window.on_menu_event(move |event| {
+                if event.menu_item_id() == "save-layout" {
                     if let Some(win) = app_handle_clone.get_window("main") {
                         let _ = win.emit("save-layout", ());
                     }
-                })?;
+                }
+            });
 
             let app_handle_clone = app_handle.clone();
-            app.global_shortcut_manager()
-                .register("CommandOrControl+R", move || {
-                    if let Some(win) = app_handle_clone.get_window("main") {
-                        let _ = win.emit("reset-layout", ());
+            window.listen("keydown", move |event| {
+                if let Some(payload) = event.payload() {
+                    if let Ok(key_event) = serde_json::from_str::<serde_json::Value>(payload) {
+                        if let Some(key) = key_event.get("key").and_then(|k| k.as_str()) {
+                            if key == "r" && key_event.get("ctrlKey").and_then(|k| k.as_bool()).unwrap_or(false) {
+                                if let Some(win) = app_handle_clone.get_window("main") {
+                                    let _ = win.emit("reset-layout", ());
+                                }
+                            }
+                        }
                     }
-                })?;
+                }
+            });
 
             let app_handle_clone = app_handle.clone();
-            app.global_shortcut_manager()
-                .register("CommandOrControl+L", move || {
-                    if let Some(win) = app_handle_clone.get_window("main") {
-                        let _ = win.emit("toggle-layout-lock", ());
+            window.listen("keydown", move |event| {
+                if let Some(payload) = event.payload() {
+                    if let Ok(key_event) = serde_json::from_str::<serde_json::Value>(payload) {
+                        if let Some(key) = key_event.get("key").and_then(|k| k.as_str()) {
+                            if key == "l" && key_event.get("ctrlKey").and_then(|k| k.as_bool()).unwrap_or(false) {
+                                if let Some(win) = app_handle_clone.get_window("main") {
+                                    let _ = win.emit("toggle-layout-lock", ());
+                                }
+                            }
+                        }
                     }
-                })?;
+                }
+            });
 
             let app_handle_clone = app_handle.clone();
-            app.global_shortcut_manager()
-                .register("F12", move || {
-                    if let Some(win) = app_handle_clone.get_window("main") {
-                        win.open_devtools();
+            window.listen("keydown", move |event| {
+                if let Some(payload) = event.payload() {
+                    if let Ok(key_event) = serde_json::from_str::<serde_json::Value>(payload) {
+                        if let Some(key) = key_event.get("key").and_then(|k| k.as_str()) {
+                            if key == "F12" {
+                                if let Some(win) = app_handle_clone.get_window("main") {
+                                    win.open_devtools();
+                                }
+                            }
+                        }
                     }
-                })?;
+                }
+            });
             
             // Initialize the database connection on setup
             let conn = init_database(&app_handle)
@@ -695,8 +717,8 @@ struct CycleConfigPayload {
 
 #[tauri::command]
 fn set_cycle_config(payload: CycleConfigPayload, state: State<AppState>) -> Result<(), String> {
-    let maybe_conn_lock = state.db.lock().unwrap();
-    if let Some(conn) = maybe_conn_lock.as_ref() {
+    let mut maybe_conn_lock = state.db.lock().unwrap();
+    if let Some(conn) = maybe_conn_lock.as_mut() {
         // Use a transaction for atomic update
         let tx = conn.transaction().map_err(|e| format!("Transaction Begin Failed: {}", e))?;
         

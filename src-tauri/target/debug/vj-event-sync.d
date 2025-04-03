@@ -1,1 +1,0 @@
-C:\Users\short\LocalLogoDrop\src-tauri\target\debug\vj-event-sync.exe: C:\Users\short\LocalLogoDrop\src-tauri\build.rs C:\Users\short\LocalLogoDrop\src-tauri\src\main.rs C:\Users\short\LocalLogoDrop\src-tauri\target\debug\build\vj-event-sync-7c0e5e8362c90365\out\VJToolsRounded.ico C:\Users\short\LocalLogoDrop\src-tauri\tauri.conf.json
