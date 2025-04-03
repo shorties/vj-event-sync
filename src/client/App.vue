@@ -2,7 +2,7 @@
   <div class="app-container">
     <TitleBar />
     <div class="main-content">
-      <div class="sidebar">
+      <div class="sidebar" :class="{ 'sidebar-collapsed': isSidebarCollapsed }">
         <div class="logo">
           <img src="./assets/VJToolsRounded.ico" alt="VJ.Tools Logo" />
         </div>
@@ -13,20 +13,30 @@
             class="nav-button"
             :class="{ active: currentModule === module.id }"
             @click="selectModule(module.id)"
+            :title="module.name"
           >
             <i :class="module.icon"></i>
             <span class="nav-text">{{ module.name }}</span>
           </button>
         </nav>
+        <button class="collapse-button" @click="toggleSidebar">
+          <i :class="isSidebarCollapsed ? 'fas fa-chevron-right' : 'fas fa-chevron-left'"></i>
+        </button>
       </div>
       <div class="content">
+        <div v-if="error" class="error-message">
+          <i class="fas fa-exclamation-circle"></i>
+          <span>{{ error.message }}</span>
+        </div>
         <component
-          v-if="currentModuleComponent"
+          v-else-if="currentModuleComponent"
           :is="currentModuleComponent"
           class="module-content"
         />
         <div v-else class="loading">
-          <i class="fas fa-spinner fa-spin"></i>
+          <div class="loading-spinner">
+            <i class="fas fa-spinner fa-spin"></i>
+          </div>
           <span>Loading module...</span>
         </div>
       </div>
@@ -48,6 +58,7 @@ export default {
     const moduleManager = useModuleManager();
     const currentModule = ref('nowPlaying');
     const error = ref(null);
+    const isSidebarCollapsed = ref(false);
 
     const availableModules = computed(() => {
       return moduleManager.modules.value.filter(module => module.enabled || module.required);
@@ -60,6 +71,10 @@ export default {
 
     const selectModule = (moduleId) => {
       currentModule.value = moduleId;
+    };
+
+    const toggleSidebar = () => {
+      isSidebarCollapsed.value = !isSidebarCollapsed.value;
     };
 
     onMounted(async () => {
@@ -90,7 +105,9 @@ export default {
       availableModules,
       currentModuleComponent,
       selectModule,
-      error
+      error,
+      isSidebarCollapsed,
+      toggleSidebar
     };
   }
 };
@@ -104,8 +121,12 @@ export default {
   --text-color: #ffffff;
   --border-color: rgba(255, 255, 255, 0.1);
   --error-color: #e81123;
+  --success-color: #4caf50;
+  --warning-color: #ff9800;
   --border-radius: 8px;
   --transition-speed: 0.2s;
+  --sidebar-width: 240px;
+  --sidebar-collapsed-width: 64px;
 }
 
 * {
@@ -119,6 +140,7 @@ body {
   background-color: var(--background-color);
   color: var(--text-color);
   line-height: 1.5;
+  overflow: hidden;
 }
 
 .app-container {
@@ -132,15 +154,21 @@ body {
   display: flex;
   flex: 1;
   overflow: hidden;
+  position: relative;
 }
 
 .sidebar {
-  width: 240px;
+  width: var(--sidebar-width);
   background-color: var(--secondary-color);
   border-right: 1px solid var(--border-color);
   display: flex;
   flex-direction: column;
   transition: width var(--transition-speed);
+  position: relative;
+}
+
+.sidebar-collapsed {
+  width: var(--sidebar-collapsed-width);
 }
 
 .logo {
@@ -155,6 +183,12 @@ body {
   width: 48px;
   height: 48px;
   object-fit: contain;
+  transition: transform var(--transition-speed);
+}
+
+.sidebar-collapsed .logo img {
+  width: 32px;
+  height: 32px;
 }
 
 .navigation {
@@ -162,6 +196,8 @@ body {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  flex: 1;
+  overflow-y: auto;
 }
 
 .nav-button {
@@ -173,8 +209,10 @@ body {
   border: none;
   color: var(--text-color);
   cursor: pointer;
-  transition: background-color var(--transition-speed);
+  transition: all var(--transition-speed);
   text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
 }
 
 .nav-button:hover {
@@ -183,17 +221,41 @@ body {
 
 .nav-button.active {
   background-color: var(--primary-color);
+  color: white;
 }
 
 .nav-button i {
   width: 20px;
   text-align: center;
+  font-size: 16px;
+}
+
+.collapse-button {
+  position: absolute;
+  bottom: 20px;
+  right: 20px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--primary-color);
+  border: none;
+  color: white;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition-speed);
+}
+
+.collapse-button:hover {
+  transform: scale(1.1);
 }
 
 .content {
   flex: 1;
   padding: 20px;
   overflow-y: auto;
+  background-color: var(--background-color);
 }
 
 .module-content {
@@ -201,6 +263,7 @@ body {
   border-radius: var(--border-radius);
   padding: 20px;
   height: 100%;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
 .loading {
@@ -214,13 +277,34 @@ body {
   opacity: 0.7;
 }
 
-.loading i {
-  font-size: 24px;
+.loading-spinner {
+  font-size: 32px;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.error-message {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 16px;
+  background-color: var(--error-color);
+  color: white;
+  border-radius: var(--border-radius);
+  margin-bottom: 20px;
+}
+
+.error-message i {
+  font-size: 20px;
 }
 
 @media (max-width: 768px) {
   .sidebar {
-    width: 64px;
+    width: var(--sidebar-collapsed-width);
   }
 
   .nav-text {
@@ -243,6 +327,10 @@ body {
 
   .nav-button i {
     margin: 0;
+  }
+
+  .collapse-button {
+    display: none;
   }
 }
 </style> 

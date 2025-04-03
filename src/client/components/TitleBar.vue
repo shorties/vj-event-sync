@@ -1,16 +1,19 @@
 <template>
   <div class="title-bar">
     <div class="title-bar-drag-area">
-      <div class="app-title">VJ Event Sync</div>
+      <div class="app-title">
+        <img src="../assets/VJToolsRounded.ico" alt="VJ.Tools Logo" class="title-logo" />
+        <span>VJ Event Sync</span>
+      </div>
     </div>
     <div class="window-controls">
-      <button class="window-control minimize" @click="minimizeWindow">
+      <button class="window-control minimize" @click="minimizeWindow" title="Minimize">
         <i class="fas fa-minus"></i>
       </button>
-      <button class="window-control maximize" @click="maximizeWindow">
-        <i class="fas fa-square"></i>
+      <button class="window-control maximize" @click="maximizeWindow" :title="isMaximized ? 'Restore' : 'Maximize'">
+        <i :class="isMaximized ? 'fas fa-clone' : 'fas fa-square'"></i>
       </button>
-      <button class="window-control close" @click="closeWindow">
+      <button class="window-control close" @click="closeWindow" title="Close">
         <i class="fas fa-times"></i>
       </button>
     </div>
@@ -19,31 +22,40 @@
 
 <script>
 import { appWindow } from '@tauri-apps/api/window';
+import { ref, onMounted } from 'vue';
 
 export default {
   name: 'TitleBar',
   setup() {
+    const isMaximized = ref(false);
+
     const minimizeWindow = async () => {
       await appWindow.minimize();
     };
 
     const maximizeWindow = async () => {
-      const isMaximized = await appWindow.isMaximized();
-      if (isMaximized) {
+      isMaximized.value = await appWindow.isMaximized();
+      if (isMaximized.value) {
         await appWindow.unmaximize();
       } else {
         await appWindow.maximize();
       }
+      isMaximized.value = !isMaximized.value;
     };
 
     const closeWindow = async () => {
       await appWindow.close();
     };
 
+    onMounted(async () => {
+      isMaximized.value = await appWindow.isMaximized();
+    });
+
     return {
       minimizeWindow,
       maximizeWindow,
-      closeWindow
+      closeWindow,
+      isMaximized
     };
   }
 };
@@ -62,6 +74,8 @@ export default {
   border-top-right-radius: var(--border-radius);
   padding: 0 10px;
   user-select: none;
+  position: relative;
+  z-index: 1000;
 }
 
 .title-bar-drag-area {
@@ -72,9 +86,18 @@ export default {
 }
 
 .app-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   font-size: 14px;
   font-weight: 500;
   margin-left: 10px;
+}
+
+.title-logo {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
 }
 
 .window-controls {
@@ -104,6 +127,17 @@ export default {
 }
 
 .window-control i {
-  font-size: 14px;
+  font-size: 12px;
+}
+
+@media (max-width: 768px) {
+  .app-title span {
+    display: none;
+  }
+  
+  .window-control {
+    width: 32px;
+    height: 32px;
+  }
 }
 </style> 
