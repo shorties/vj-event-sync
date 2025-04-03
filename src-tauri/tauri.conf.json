@@ -58,58 +58,6 @@
         "decorations": false,
         "center": true
       }
-    ],
-    "macOSPrivateApi": true,
-    "menu": [
-      {
-        "label": "File",
-        "submenu": [
-          { "label": "Close Window", "accelerator": "CmdOrCtrl+W", "role": "close" }
-        ]
-      },
-      {
-        "label": "Edit",
-        "submenu": [
-          { "label": "Undo", "accelerator": "CmdOrCtrl+Z", "role": "undo" },
-          { "label": "Redo", "accelerator": "CmdOrCtrl+Shift+Z", "role": "redo" },
-          { "type": "separator" },
-          { "label": "Cut", "accelerator": "CmdOrCtrl+X", "role": "cut" },
-          { "label": "Copy", "accelerator": "CmdOrCtrl+C", "role": "copy" },
-          { "label": "Paste", "accelerator": "CmdOrCtrl+V", "role": "paste" },
-          { "label": "Select All", "accelerator": "CmdOrCtrl+A", "role": "selectAll" }
-        ]
-      },
-      {
-        "label": "View",
-        "submenu": [
-          { "label": "Reload", "accelerator": "CmdOrCtrl+R", "role": "reload" },
-          { "label": "Force Reload", "accelerator": "CmdOrCtrl+Shift+R", "role": "forceReload" },
-          { "label": "Toggle Developer Tools", "accelerator": "F12", "role": "toggleDevTools" },
-          { "type": "separator" },
-          { "label": "Toggle Fullscreen", "role": "toggleFullscreen" }
-        ]
-      },
-      {
-        "label": "Layout",
-        "submenu": [
-           { "label": "Save Current Layout", "id": "save-layout", "accelerator": "CmdOrCtrl+S" },
-           { "type": "separator" },
-           { "label": "Reset to Default Layout", "id": "reset-layout" }
-        ]
-      },
-      {
-        "label": "Window",
-        "submenu": [
-          { "label": "Minimize", "accelerator": "CmdOrCtrl+M", "role": "minimize" },
-          { "label": "Zoom", "role": "zoom" }
-        ]
-      },
-      {
-        "label": "Help",
-        "submenu": [
-          { "label": "Learn More", "id": "learn-more" }
-        ]
-      }
     ]
   }
 } 

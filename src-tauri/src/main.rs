@@ -221,12 +221,12 @@ fn main() {
             // Set up window event listeners
             let app_handle = app.handle();
             let window_clone = window.clone();
-            let handle_for_event = app_handle.clone(); // Clone the handle for the closure
+            let handle_for_event = app_handle.clone();
+            
             window.on_window_event(move |event| {
                 match event {
                     tauri::WindowEvent::CloseRequested { api, .. } => {
-                        // Prevent closing if server is running
-                        let server_state = handle_for_event.state::<ServerState>(); // Use the cloned handle
+                        let server_state = handle_for_event.state::<ServerState>();
                         let server_pid = server_state.0.lock().unwrap();
                         
                         if server_pid.is_some() {
@@ -237,9 +237,42 @@ fn main() {
                     _ => {}
                 }
             });
+
+            // Register keyboard shortcuts
+            let app_handle_clone = app_handle.clone();
+            app.global_shortcut_manager()
+                .register("CommandOrControl+S", move || {
+                    if let Some(win) = app_handle_clone.get_window("main") {
+                        let _ = win.emit("save-layout", ());
+                    }
+                })?;
+
+            let app_handle_clone = app_handle.clone();
+            app.global_shortcut_manager()
+                .register("CommandOrControl+R", move || {
+                    if let Some(win) = app_handle_clone.get_window("main") {
+                        let _ = win.emit("reset-layout", ());
+                    }
+                })?;
+
+            let app_handle_clone = app_handle.clone();
+            app.global_shortcut_manager()
+                .register("CommandOrControl+L", move || {
+                    if let Some(win) = app_handle_clone.get_window("main") {
+                        let _ = win.emit("toggle-layout-lock", ());
+                    }
+                })?;
+
+            let app_handle_clone = app_handle.clone();
+            app.global_shortcut_manager()
+                .register("F12", move || {
+                    if let Some(win) = app_handle_clone.get_window("main") {
+                        win.open_devtools();
+                    }
+                })?;
             
             // Initialize the database connection on setup
-            let conn = init_database(&app_handle) // Use the original handle here
+            let conn = init_database(&app_handle)
                 .expect("Failed to initialize database");
             let app_state: tauri::State<AppState> = app_handle.state();
             *app_state.db.lock().unwrap() = Some(conn);

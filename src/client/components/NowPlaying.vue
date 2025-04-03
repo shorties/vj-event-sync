@@ -110,14 +110,125 @@
 
     <!-- III. Bottom Bar: Tabs -->
     <div class="bottom-bar">
-      <button :class="{ active: activeDrawerTab === 'Cycles' }" @click="activeDrawerTab = 'Cycles'">CYCLE GROUPS</button>
-      <button :class="{ active: activeDrawerTab === 'EditAdd' }" @click="activeDrawerTab = 'EditAdd'">ADD/EDIT</button>
-      <button :class="{ active: activeDrawerTab === 'Schedule' }" @click="activeDrawerTab = 'Schedule'">LOGO SCHEDULE</button> <!-- Renamed -->
-      <button :class="{ active: activeDrawerTab === 'Files' }" @click="activeDrawerTab = 'Files'">FILE BROWSER</button>
+      <button :class="{ active: activeDrawerTab === 'Cycles' }" @click="toggleDrawer('Cycles')">CYCLE GROUPS</button>
+      <button :class="{ active: activeDrawerTab === 'EditAdd' }" @click="toggleDrawer('EditAdd')">ADD/EDIT</button>
+      <button :class="{ active: activeDrawerTab === 'Schedule' }" @click="toggleDrawer('Schedule')">LOGO SCHEDULE</button> 
+      <button :class="{ active: activeDrawerTab === 'Files' }" @click="toggleDrawer('Files')">FILE BROWSER</button>
     </div>
 
-    <!-- Contextual Drawer Placeholder (can be implemented later if needed) -->
-    <!-- <div v-if="activeDrawerTab" class="contextual-drawer-panel">...</div> -->
+    <!-- V. Contextual Drawer Panel -->
+    <div v-if="activeDrawerTab" class="contextual-drawer-panel">
+        <div class="drawer-header">
+            <h4>{{ activeDrawerTab }} Panel</h4>
+            <button @click="activeDrawerTab = null" class="close-drawer-btn">✕</button>
+        </div>
+        <div class="drawer-content">
+            <!-- Content based on active tab -->
+            <div v-if="activeDrawerTab === 'Cycles'" class="drawer-tab-content">
+                <h5>Configure Cycle Order</h5>
+                <p>Drag items to reorder the default playback cycle.</p>
+                <div v-if="loading.cycle">Loading cycle...</div>
+                <div v-else-if="errors.cycle" class="error">{{ errors.cycle }}</div>
+                <draggable 
+                    v-else
+                    v-model="cycleItems" 
+                    tag="ul" 
+                    item-key="id" 
+                    class="cycle-config-list"
+                    handle=".drag-handle"
+                    ghost-class="ghost"
+                    :animation="200">
+                    <template #item="{element}"> <!-- Use element alias -->
+                        <li class="cycle-config-item">
+                           <span class="drag-handle">⠿</span>
+                           <span class="item-name">{{ element.name }} (ID: {{ element.logo_id }})</span>
+                           <!-- Add remove button? -->
+                           <button @click="removeCycleItem(element.id)" class="remove-btn">×</button>
+                        </li>
+                    </template>
+                </draggable>
+                 <div class="drawer-actions">
+                    <button @click="handleSaveCycleOrder" :disabled="loading.cycle || !!errors.cycle">Save Current Order</button>
+                    <p v-if="saveCycleStatus" :class="{ error: saveCycleError }">{{ saveCycleStatus }}</p>
+                 </div>
+                <hr>
+                <p>Save/Load Named Groups - To be implemented</p>
+                 <button @click="saveCurrentCycle">Save Current Cycle As...</button>
+            </div>
+
+            <div v-else-if="activeDrawerTab === 'EditAdd'" class="drawer-tab-content">
+                <div class="add-edit-forms">
+                    <!-- Add Logo Form -->
+                    <form @submit.prevent="handleAddNewLogo" class="add-form">
+                        <h5>Add New Logo</h5>
+                        <div class="form-group">
+                            <label for="logo-name">Name:</label>
+                            <input id="logo-name" v-model="newLogo.name" type="text" required />
+                        </div>
+                        <div class="form-group">
+                            <label for="logo-path">File Path:</label>
+                            <input id="logo-path" v-model="newLogo.filePath" type="text" required />
+                             <!-- TODO: Add file picker button -->
+                        </div>
+                         <div class="form-group">
+                            <label for="logo-thumb">Thumbnail Path (Optional):</label>
+                            <input id="logo-thumb" v-model="newLogo.thumbnailPath" type="text" />
+                        </div>
+                        <button type="submit">Add Logo</button>
+                        <p v-if="addLogoStatus" :class="{ error: addLogoError }">{{ addLogoStatus }}</p>
+                    </form>
+
+                    <!-- Add Schedule Event Form -->
+                    <form @submit.prevent="handleAddNewScheduleEvent" class="add-form">
+                        <h5>Add Schedule Event</h5>
+                        <div class="form-group">
+                            <label for="event-time">Time (HH:MM):</label>
+                            <input id="event-time" v-model="newEvent.time" type="time" required />
+                        </div>
+                        <div class="form-group">
+                            <label for="event-name">Name / DJ:</label>
+                            <input id="event-name" v-model="newEvent.name" type="text" required />
+                        </div>
+                         <div class="form-group">
+                            <label for="event-type">Type:</label>
+                            <select id="event-type" v-model="newEvent.type" required>
+                                <option value="dj_set">DJ Set</option>
+                                <option value="sponsor_slot">Sponsor Slot</option>
+                                <option value="special_visual">Special Visual</option>
+                                <option value="intermission">Intermission</option>
+                                <option value="manual_trigger">Manual Trigger Point</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="event-duration">Duration (seconds, 0 or empty for indefinite):</label>
+                            <input id="event-duration" v-model.number="newEvent.duration" type="number" min="0" />
+                        </div>
+                         <div class="form-group">
+                            <label for="event-logo">Link Logo (Optional):</label>
+                             <select id="event-logo" v-model="newEvent.linkedLogoId">
+                                <option value="">-- None --</option>
+                                <option v-for="logo in galleryItems" :key="logo.id" :value="logo.id">
+                                    {{ logo.name }}
+                                </option>
+                            </select>
+                        </div>
+                        <button type="submit">Add Event</button>
+                        <p v-if="addEventStatus" :class="{ error: addEventError }">{{ addEventStatus }}</p>
+                    </form>
+                </div>
+            </div>
+
+            <div v-else-if="activeDrawerTab === 'Schedule'" class="drawer-tab-content">
+                <p>Full Logo Schedule Editor / Timeline View - To be implemented</p>
+                <!-- Could show a more detailed list, allow reordering/editing -->
+            </div>
+
+            <div v-else-if="activeDrawerTab === 'Files'" class="drawer-tab-content">
+                <p>Local/Network File Browser - To be implemented</p>
+                <!-- Could use Tauri FS API to list files -->
+            </div>
+        </div>
+    </div>
 
   </div>
 </template>
@@ -128,10 +239,13 @@ import { invoke } from '@tauri-apps/api/tauri';
 import { listen } from '@tauri-apps/api/event'; // Import listen for menu events
 import 'gridstack/dist/gridstack.min.css'; // Import Gridstack CSS
 import { GridStack } from 'gridstack'; // Import Gridstack JS
+import { appWindow } from '@tauri-apps/api/window'; // Import appWindow
+import draggable from 'vuedraggable'; // Import vuedraggable
 
 // --- Gridstack State --- 
 const grid = ref(null); // Holds the Gridstack instance
 const gridLayoutKey = 'vjtools-grid-layout'; // Key for localStorage
+const isLayoutLocked = ref(false); // State for layout lock
 
 // --- Other State --- 
 const currentTime = ref(formatTime(new Date()));
@@ -152,6 +266,20 @@ const galleryFilter = ref(null);
 const currentCycleIndex = ref(0);
 const currentItemStartTime = ref(null); // Date object
 const defaultCycleDuration = ref(10); // Default duration for cycle items in seconds
+
+// Form models
+const newLogo = reactive({ name: '', filePath: '', thumbnailPath: '' });
+const newEvent = reactive({ time: '', name: '', type: 'dj_set', duration: null, linkedLogoId: '' });
+
+// Add status messages
+const addLogoStatus = ref("");
+const addLogoError = ref(false);
+const addEventStatus = ref("");
+const addEventError = ref(false);
+
+// --- Cycle Management (Drawer) ---
+const saveCycleStatus = ref("");
+const saveCycleError = ref(false);
 
 // --- Computed --- 
 const timeUrgencyClass = computed(() => {
@@ -409,17 +537,19 @@ function initializeGridstack() {
     float: false, // Items don't float up
     cellHeight: 'auto', // Use content height initially, but CSS might override
     margin: 10, // Margin between items
-    disableResize: false,
-    disableDrag: false,
+    // Initial lock state
+    disableResize: isLayoutLocked.value,
+    disableDrag: isLayoutLocked.value,
     // acceptWidgets: '.new-widget' // If adding new widgets later
   });
 
   loadLayout(); // Load saved layout after init
 
-  // Save layout whenever an item is dragged or resized
   grid.value.on('change', (event, items) => {
-      console.log('Grid changed:', items);
-      saveLayout();
+      if (!isLayoutLocked.value) { // Only save if not locked
+        console.log('Grid changed: Saving layout');
+        saveLayout();
+      }
   });
 }
 
@@ -472,24 +602,161 @@ function resetLayout() {
   // saveLayout();
 }
 
+function toggleLayoutLock(lockState) {
+    if (!grid.value) return;
+    isLayoutLocked.value = lockState; // Update the ref
+    if (isLayoutLocked.value) {
+        grid.value.disable(); // Disables drag & resize
+        console.log("Layout LOCKED");
+    } else {
+        grid.value.enable(); // Enables drag & resize
+        console.log("Layout UNLOCKED");
+    }
+    // Update the menu item checked state
+    appWindow.menuItems()['toggle-layout-lock'].then(item => {
+        item?.setChecked(isLayoutLocked.value);
+    }).catch(e => console.error("Failed to update menu check state:", e));
+}
+
 // --- Menu Event Listeners --- 
 async function setupMenuListeners() {
+    // Initial sync of lock state with menu (in case saved state differs)
+    // We might need a way to store the lock state persistently too
+    appWindow.menuItems()['toggle-layout-lock'].then(item => {
+        item?.isChecked().then(checked => {
+            isLayoutLocked.value = checked;
+            // Apply initial lock state to grid if already initialized
+            if (grid.value) {
+                if (isLayoutLocked.value) grid.value.disable();
+                else grid.value.enable();
+            }
+        })
+    }).catch(e => console.error("Failed to get initial menu check state:", e));
+
+    // Listen for clicks
     await listen('tauri://menu', (event) => {
         console.log('Menu item clicked:', event.payload);
-        switch (event.payload) {
+        const menuItemId = event.payload; // Payload is the item ID for non-checkbox items
+        switch (menuItemId) {
             case 'save-layout':
                 saveLayout();
                 break;
             case 'reset-layout':
                 resetLayout();
                 break;
+            case 'toggle-layout-lock':
+                // Checkbox events don't include the ID in payload directly
+                // We need to get the state from the menu item itself
+                 appWindow.menuItems()['toggle-layout-lock'].then(item => {
+                    item?.isChecked().then(checked => {
+                       toggleLayoutLock(checked); // Call our function with the new state
+                    });
+                 }).catch(e => console.error("Failed to handle toggle-layout-lock:", e));
+                break;
             case 'learn-more':
-                // Example: Open a URL
                 invoke('open', { uri: 'https://github.com/gridstack/gridstack.js' });
                 break;
-            // Handle other custom menu items if needed
         }
     });
+}
+
+// --- Drawer Toggle ---
+function toggleDrawer(tabName) {
+    if (activeDrawerTab.value === tabName) {
+        activeDrawerTab.value = null; // Close if clicking active tab
+    } else {
+        activeDrawerTab.value = tabName;
+    }
+}
+
+// --- Add/Edit Handlers ---
+async function handleAddNewLogo() {
+    addLogoStatus.value = "Adding...";
+    addLogoError.value = false;
+    try {
+        const newId = await invoke('add_logo', { 
+            name: newLogo.name, 
+            filePath: newLogo.filePath, 
+            thumbnailPath: newLogo.thumbnailPath || null 
+        });
+        addLogoStatus.value = `Logo added successfully (ID: ${newId})!`;
+        // Clear form
+        newLogo.name = '';
+        newLogo.filePath = '';
+        newLogo.thumbnailPath = '';
+        // Refresh gallery data
+        await fetchData(); // Re-fetch all data for simplicity
+    } catch (err) {
+        addLogoError.value = true;
+        addLogoStatus.value = `Error: ${err.message || String(err)}`;
+        console.error("Failed to add logo:", err);
+    } 
+}
+
+async function handleAddNewScheduleEvent() {
+    addEventStatus.value = "Adding...";
+    addEventError.value = false;
+    try {
+        const duration = newEvent.duration === null || newEvent.duration === '' ? null : Number(newEvent.duration);
+        const logoId = newEvent.linkedLogoId === '' ? null : newEvent.linkedLogoId;
+
+        const newId = await invoke('add_schedule_event', { 
+            eventTime: newEvent.time, // Already string in HH:MM format
+            name: newEvent.name,
+            eventType: newEvent.type,
+            durationSeconds: duration, 
+            linkedLogoId: logoId
+        });
+        addEventStatus.value = `Event added successfully (ID: ${newId})!`;
+        // Clear form
+        newEvent.time = '';
+        newEvent.name = '';
+        newEvent.type = 'dj_set';
+        newEvent.duration = null;
+        newEvent.linkedLogoId = '';
+        // Refresh schedule data
+        await fetchData(); // Re-fetch all data
+    } catch (err) {
+        addEventError.value = true;
+        addEventStatus.value = `Error: ${err.message || String(err)}`;
+        console.error("Failed to add schedule event:", err);
+    }
+}
+
+// Placeholder for saving cycle
+function saveCurrentCycle() {
+    alert("Save Cycle Group - Not implemented yet.");
+    // TODO: Get current cycle order (needs way to represent it) 
+    // and invoke backend command to save it with a name.
+}
+
+// --- Cycle Management (Drawer) ---
+function removeCycleItem(itemIdToRemove) {
+    const index = cycleItems.findIndex(item => item.id === itemIdToRemove);
+    if (index > -1) {
+        cycleItems.splice(index, 1);
+        // Note: This only removes from the *local* list. 
+        // User needs to click 'Save Current Order' to persist.
+    }
+}
+
+async function handleSaveCycleOrder() {
+    saveCycleStatus.value = "Saving...";
+    saveCycleError.value = false;
+    try {
+        const logoIds = cycleItems.map(item => item.logo_id);
+        await invoke('set_cycle_config', { payload: { logoIds } });
+        saveCycleStatus.value = "Cycle order saved successfully!";
+        // Optionally refetch data to confirm, though local state should match
+        await fetchData(); 
+    } catch (err) {
+        saveCycleError.value = true;
+        saveCycleStatus.value = `Error saving cycle: ${err.message || String(err)}`;
+        console.error("Failed to save cycle order:", err);
+    } finally {
+        // Optionally clear status after a delay
+        setTimeout(() => { saveCycleStatus.value = ""; }, 3000);
+    }
 }
 
 // --- Lifecycle & Timer --- 
@@ -720,5 +987,216 @@ onUnmounted(() => {
 /* --- Scrollbar styling --- */
 /* ... Existing styles are fine ... */
 
+/* --- Drawer Panel Styles --- */
+.contextual-drawer-panel {
+    background-color: #2a2a2a; /* Slightly lighter than main bg */
+    border-top: 1px solid #444;
+    padding: 0; /* Handle padding inside header/content */
+    position: absolute; 
+    bottom: 36px; /* Align with bottom bar height */
+    left: 0;
+    right: 0;
+    max-height: 40%; /* Limit height */
+    overflow: hidden; /* Prevent content spill before animation */
+    box-shadow: 0 -6px 12px rgba(0,0,0,0.3);
+    z-index: 20; 
+    display: flex;
+    flex-direction: column;
+    /* Add animation */
+    transition: transform 0.3s ease-out;
+    transform: translateY(100%); /* Start hidden below */
+}
+
+/* Add visible state */
+.live-control-container > .contextual-drawer-panel[style*="display: block"],
+.live-control-container > .contextual-drawer-panel[style*="display: flex"] /* Add this if v-if changes display */
+.live-control-container > .contextual-drawer-panel:not([style*="display: none"]) /* Fallback if v-if doesn't use display */ {
+    transform: translateY(0%); /* Slide in */
+}
+
+.drawer-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 15px;
+    background-color: #333;
+    flex-shrink: 0;
+}
+.drawer-header h4 {
+    margin: 0;
+    color: var(--primary-color, #2196F3);
+    font-size: 1em;
+}
+.close-drawer-btn {
+    background: none;
+    border: none;
+    color: #aaa;
+    font-size: 1.2em;
+    cursor: pointer;
+    padding: 0 5px;
+}
+.close-drawer-btn:hover {
+    color: #fff;
+}
+
+.drawer-content {
+    padding: 15px;
+    overflow-y: auto; /* Allow content to scroll */
+    flex-grow: 1;
+}
+
+/* ADD/EDIT Form Styling */
+.add-edit-forms {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap; /* Allow forms to wrap on smaller screens */
+}
+
+.add-form {
+    background-color: #3a3a3a;
+    padding: 15px;
+    border-radius: 4px;
+    border: 1px solid #555;
+    flex: 1; /* Allow forms to share space */
+    min-width: 280px; /* Minimum width before wrapping */
+}
+
+.add-form h5 {
+    margin-top: 0;
+    margin-bottom: 15px;
+    color: #eee;
+}
+
+.form-group {
+    margin-bottom: 12px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 4px;
+    font-size: 0.9em;
+    color: #ccc;
+}
+
+.form-group input[type="text"],
+.form-group input[type="time"],
+.form-group input[type="number"],
+.form-group select {
+    width: 100%;
+    padding: 6px 8px;
+    background-color: #2a2a2a;
+    border: 1px solid #555;
+    border-radius: 3px;
+    color: #eee;
+    font-size: 0.9em;
+}
+
+.add-form button[type="submit"] {
+    padding: 6px 12px;
+    background-color: var(--primary-color, #2196F3);
+    border: none;
+    color: white;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 0.9em;
+    margin-top: 5px;
+}
+.add-form button[type="submit"]:hover {
+    opacity: 0.9;
+}
+
+.add-form p {
+    margin-top: 10px;
+    font-size: 0.9em;
+}
+.add-form p.error {
+    color: red;
+}
+
+/* Cycle Config List Styles */
+.cycle-config-list {
+    list-style: none;
+    padding: 0;
+    margin: 10px 0;
+    border: 1px solid #444;
+    border-radius: 4px;
+    max-height: 200px; /* Limit height in drawer */
+    overflow-y: auto;
+}
+
+.cycle-config-item {
+    display: flex;
+    align-items: center;
+    padding: 8px 10px;
+    background-color: #3a3a3a;
+    border-bottom: 1px solid #4a4a4a;
+    cursor: grab; /* Indicate draggable */
+}
+.cycle-config-item:last-child {
+    border-bottom: none;
+}
+
+.drag-handle {
+    cursor: grab;
+    color: #888;
+    margin-right: 10px;
+    font-size: 1.2em;
+    line-height: 1;
+}
+
+.item-name {
+    flex-grow: 1;
+    font-size: 0.9em;
+}
+
+.remove-btn {
+    background: none;
+    border: none;
+    color: #aaa;
+    font-size: 1.1em;
+    cursor: pointer;
+    padding: 0 5px;
+}
+.remove-btn:hover {
+    color: red;
+}
+
+/* Styling for vuedraggable ghost item */
+.ghost {
+    opacity: 0.5;
+    background: #4a4a7a;
+}
+
+/* Actions below list */
+.drawer-actions {
+    margin-top: 15px;
+}
+.drawer-actions button {
+    padding: 5px 10px;
+    background-color: var(--primary-color, #2196F3);
+    border: none;
+    color: white;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 0.9em;
+    margin-right: 10px;
+}
+.drawer-actions button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+.drawer-actions p {
+    display: inline-block;
+    margin: 0;
+    font-size: 0.9em;
+}
+.drawer-actions p.error {
+    color: red;
+}
+
+/* Drawer Tab Content Styles */
+.drawer-tab-content { /* Add class to specific tab content divs */
+    /* Styles common to drawer tabs if needed */
+}
 
 </style>
