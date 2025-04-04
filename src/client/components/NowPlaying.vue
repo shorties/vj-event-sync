@@ -6,7 +6,7 @@
         <div class="now-showing-title">NOW SHOWING</div>
         <div class="now-showing-preview">
           <div class="preview-content">
-            <i class="fas fa-play-circle"></i>
+            <font-awesome-icon icon="fa-solid fa-play-circle" />
             <span>{{ currentlyShowing?.name || 'No content playing' }}</span>
           </div>
           <div class="progress-bar-container">
@@ -16,7 +16,7 @@
       </div>
       <div class="time-display">
         <div :class="['system-time', timeUrgencyClass]">
-          <i class="fas fa-clock"></i>
+          <font-awesome-icon icon="fa-solid fa-clock" />
           <span>{{ formatTime(currentTime) }}</span>
         </div>
         <div class="global-controls">
@@ -25,17 +25,17 @@
             @click="toggleTimeFormat"
             :title="is24HourFormat ? 'Switch to 12-Hour Format' : 'Switch to 24-Hour Format'"
           >
-            <i class="fas fa-clock"></i> {{ is24HourFormat ? '24H' : '12H' }}
+            <font-awesome-icon icon="fa-solid fa-clock" /> {{ is24HourFormat ? '24H' : '12H' }}
           </button>
           <button 
             class="control-button" 
             @click="toggleTimeZone"
             :title="currentTimeZone === 'local' ? 'Switch to UTC Time' : 'Switch to Local Time'"
           >
-            <i class="fas fa-globe"></i> {{ currentTimeZone.toUpperCase() }}
+            <font-awesome-icon icon="fa-solid fa-globe" /> {{ currentTimeZone.toUpperCase() }}
           </button>
           <button class="control-button settings-button" title="App Settings">
-            <i class="fas fa-cog"></i>
+            <font-awesome-icon icon="fa-solid fa-cog" />
           </button>
         </div>
       </div>
@@ -49,10 +49,10 @@
           <div :class="['grid-stack-item-content', 'section', 'cycle-section', { collapsed: sectionStates.cycle.collapsed }]" >
             <div class="section-header">
               <div class="drag-handle" title="Move Section">
-                  <i class="fas fa-ellipsis-h"></i>
+                  <font-awesome-icon icon="fa-solid fa-ellipsis-h" />
               </div>
               <h4 class="section-title">
-                <i class="fas fa-sync"></i>
+                <font-awesome-icon icon="fa-solid fa-sync" />
                 CYCLE
               </h4>
               <div class="section-controls">
@@ -61,34 +61,34 @@
                   @click="toggleCollapse('cycle')" 
                   :title="sectionStates.cycle.collapsed ? 'Expand Section' : 'Collapse Section'"
                 >
-                  <i :class="['fas', sectionStates.cycle.collapsed ? 'fa-plus' : 'fa-minus']"></i>
+                  <font-awesome-icon :icon="['fa-solid', sectionStates.cycle.collapsed ? 'fa-plus' : 'fa-minus']" />
                 </button>
                 <button 
                   class="control-button expand-btn" 
                   @click="expandSection('cycle')" 
                   title="Maximize Section (Not Implemented)"
                 >
-                  <i class="fas fa-expand-alt"></i>
+                  <font-awesome-icon icon="fa-solid fa-expand-alt" />
                 </button>
                 <button class="control-button" @click="toggleCycleLock" :title="isCycleLocked ? 'Unlock Cycle' : 'Lock Cycle'">
-                  <i :class="['fas', isCycleLocked ? 'fa-lock' : 'fa-lock-open']"></i>
+                  <font-awesome-icon :icon="isCycleLocked ? 'fa-solid fa-lock' : 'fa-solid fa-lock-open'" />
                 </button>
                 <button class="control-button" @click="refreshCycle" title="Refresh Cycle">
-                  <i class="fas fa-sync"></i>
+                  <font-awesome-icon icon="fa-solid fa-sync" />
                 </button>
               </div>
             </div>
             <div class="section-body item-container horizontal-scroll" v-show="!sectionStates.cycle.collapsed">
               <div v-if="loading.cycle" class="loading-state">
-                <i class="fas fa-spinner fa-spin"></i>
+                <font-awesome-icon icon="fa-solid fa-spinner" spin />
                 <span>Loading cycle items...</span>
               </div>
               <div v-else-if="errors.cycle" class="error-state">
-                <i class="fas fa-exclamation-circle"></i>
+                <font-awesome-icon icon="fa-solid fa-exclamation-circle" />
                 <span>{{ errors.cycle }}</span>
               </div>
               <div v-else-if="!cycleItems.length" class="empty-state">
-                <i class="fas fa-inbox"></i>
+                <font-awesome-icon icon="fa-solid fa-inbox" />
                 <span>Empty Cycle</span>
               </div>
               <div v-else v-for="item in cycleItems" 
@@ -102,7 +102,7 @@
                 <div class="item-content">
                   <div class="item-header">
                     <span v-if="item.status === 'scheduled'" class="icon lock-icon">
-                      <i class="fas fa-lock"></i>
+                      <font-awesome-icon icon="fa-solid fa-lock" />
                     </span>
                     <span class="item-name">{{ item.name }}</span>
                   </div>
@@ -131,10 +131,10 @@
           <div :class="['grid-stack-item-content', 'section', 'gallery-section', { collapsed: sectionStates.gallery.collapsed }]" >
              <div class="section-header">
                <div class="drag-handle" title="Move Section">
-                   <i class="fas fa-ellipsis-h"></i>
+                   <font-awesome-icon icon="fa-solid fa-ellipsis-h" />
                </div>
                <h4 class="section-title">
-                 <i class="fas fa-th-large"></i> <!-- Added gallery icon -->
+                 <font-awesome-icon icon="fa-solid fa-th-large" /> <!-- Added gallery icon -->
                  LOGO GALLERY <span v-if="galleryFilter">({{ galleryFilter }})</span>
                </h4>
                <div class="section-controls">
@@ -143,17 +143,17 @@
                     @click="toggleCollapse('gallery')" 
                     :title="sectionStates.gallery.collapsed ? 'Expand Section' : 'Collapse Section'"
                   >
-                    <i :class="['fas', sectionStates.gallery.collapsed ? 'fa-plus' : 'fa-minus']"></i>
+                    <font-awesome-icon :icon="['fa-solid', sectionStates.gallery.collapsed ? 'fa-plus' : 'fa-minus']" />
                   </button>
                   <button 
                     class="control-button expand-btn" 
                     @click="expandSection('gallery')" 
                     title="Maximize Section (Not Implemented)"
                   >
-                    <i class="fas fa-expand-alt"></i>
+                    <font-awesome-icon icon="fa-solid fa-expand-alt" />
                   </button>
                   <button class="control-button" @click="toggleGalleryFilter" :title="galleryFilter ? 'Clear Filter' : 'Filter Gallery'">
-                    <i class="fas fa-filter"></i>
+                    <font-awesome-icon icon="fa-solid fa-filter" />
                   </button>
                   <select v-model="gallerySelectedArtist" class="filter-select artist-filter" title="Filter by Artist">
                     <option :value="null">All Artists</option>
@@ -165,7 +165,28 @@
                       </option>
                     </template>
                   </select>
-                  <input type="text" v-model="gallerySearchTerm" placeholder="Search..." class="filter-input search-filter" />
+                  <!-- Dynamic Search Input Area -->
+                  <div class="search-container" :class="{ active: isSearchActive }">
+                     <button 
+                       class="control-button search-toggle-btn" 
+                       @click="activateSearch"
+                       v-show="!isSearchActive" 
+                       title="Search Logos"
+                     >
+                       <font-awesome-icon icon="fa-solid fa-search" />
+                     </button>
+                     <input 
+                       ref="searchInputRef" 
+                       type="text" 
+                       v-model="gallerySearchTerm" 
+                       placeholder="Search..." 
+                       class="filter-input search-filter-dynamic" 
+                       v-show="isSearchActive"
+                       @blur="deactivateSearch"
+                       @keyup.esc="cancelSearch"
+                     />
+                  </div>
+                  <!-- End Dynamic Search -->
                </div>
              </div>
              <div class="section-body gallery-body" v-show="!sectionStates.gallery.collapsed">
@@ -198,26 +219,26 @@
                                 class="preview-image"
                               />
                               <div v-else class="no-preview">
-                                 <i class="fas fa-image"></i>
+                                 <font-awesome-icon icon="fa-solid fa-image" />
                                  <span>No Preview Available</span>
                               </div>
                            </div>
                            <div class="details-info">
                                <h6>{{ logo.name }}</h6>
                                <div class="detail-field">
-                                   <label><i class="fas fa-paint-brush"></i> Artist:</label>
+                                   <label><font-awesome-icon icon="fa-solid fa-paint-brush" /> Artist:</label>
                                    <span>{{ getArtistName(logo.artist_id) || 'Unknown' }}</span>
                                </div>
                                <div class="detail-field">
-                                   <label><i class="fas fa-tags"></i> Tags:</label>
+                                   <label><font-awesome-icon icon="fa-solid fa-tags" /> Tags:</label>
                                    <span>{{ logo.tags || 'None' }}</span>
                                </div>
                                 <div class="detail-field">
-                                   <label><i class="fas fa-link"></i> Linked DJs:</label>
+                                   <label><font-awesome-icon icon="fa-solid fa-link" /> Linked DJs:</label>
                                    <span>{{ logo.linked_djs?.join(', ') || 'None' }}</span>
                                </div>
                                <div class="detail-field path-field">
-                                   <label><i class="fas fa-file"></i> Path:</label>
+                                   <label><font-awesome-icon icon="fa-solid fa-file" /> Path:</label>
                                    <span :title="logo.file_path">{{ logo.file_path }}</span>
                                </div>
                                <div class="details-actions">
@@ -227,7 +248,7 @@
                                      :disabled="cycleItems.some(item => item.logo_id === logo.id)" 
                                      title="Add this logo to the end of the default cycle"
                                     >
-                                     <i class="fas fa-plus-circle"></i> Add to Cycle
+                                     <font-awesome-icon icon="fa-solid fa-plus-circle" /> Add to Cycle
                                    </button>
                                    <!-- Add other actions like Edit, Delete? -->
                                </div>
@@ -243,10 +264,10 @@
           <div :class="['grid-stack-item-content', 'section', 'schedule-section', { collapsed: sectionStates.schedule.collapsed }]" >
              <div class="section-header">
                 <div class="drag-handle" title="Move Section">
-                    <i class="fas fa-ellipsis-h"></i>
+                    <font-awesome-icon icon="fa-solid fa-ellipsis-h" />
                 </div>
                 <h4 class="section-title">
-                  <i class="fas fa-calendar-alt"></i> <!-- Added schedule icon -->
+                  <font-awesome-icon icon="fa-solid fa-calendar-alt" /> <!-- Added schedule icon -->
                   SCHEDULE
                 </h4>
                 <div class="section-controls">
@@ -255,20 +276,20 @@
                     @click="toggleCollapse('schedule')" 
                     :title="sectionStates.schedule.collapsed ? 'Expand Section' : 'Collapse Section'"
                   >
-                    <i :class="['fas', sectionStates.schedule.collapsed ? 'fa-plus' : 'fa-minus']"></i>
+                    <font-awesome-icon :icon="['fa-solid', sectionStates.schedule.collapsed ? 'fa-plus' : 'fa-minus']" />
                   </button>
                   <button 
                     class="control-button expand-btn" 
                     @click="expandSection('schedule')" 
                     title="Maximize Section (Not Implemented)"
                   >
-                    <i class="fas fa-expand-alt"></i>
+                    <font-awesome-icon icon="fa-solid fa-expand-alt" />
                   </button>
                   <button class="control-button" @click="toggleScheduleLock" :title="isScheduleLocked ? 'Unlock Schedule' : 'Lock Schedule'">
-                    <i :class="['fas', isScheduleLocked ? 'fa-lock' : 'fa-lock-open']"></i>
+                    <font-awesome-icon :icon="isScheduleLocked ? 'fa-solid fa-lock' : 'fa-solid fa-lock-open'" />
                   </button>
                   <button class="control-button" @click="refreshSchedule" title="Refresh Schedule">
-                    <i class="fas fa-sync"></i>
+                    <font-awesome-icon icon="fa-solid fa-sync" />
                   </button>
                 </div>
              </div>
@@ -302,7 +323,7 @@
           @click="toggleDrawer(tab.id)"
           :title="tab.title"
         >
-          <i :class="tab.icon"></i>
+          <font-awesome-icon :icon="tab.icon" />
           <span class="tab-label">{{ tab.label }}</span>
         </button>
       </div>
@@ -312,21 +333,21 @@
           @click="toggleLayoutLock" 
           :title="isLayoutLocked ? 'Unlock Layout' : 'Lock Layout'"
         >
-          <i :class="['fas', isLayoutLocked ? 'fa-lock' : 'fa-lock-open']"></i>
+          <font-awesome-icon :icon="isLayoutLocked ? 'fa-solid fa-lock' : 'fa-solid fa-lock-open'" />
         </button>
         <button 
           class="layout-button" 
           @click="resetLayout" 
           title="Reset Layout"
         >
-          <i class="fas fa-undo"></i>
+          <font-awesome-icon icon="fa-solid fa-undo" />
         </button>
         <button 
           class="layout-button" 
           @click="saveLayout" 
           title="Save Layout"
         >
-          <i class="fas fa-save"></i>
+          <font-awesome-icon icon="fa-solid fa-save" />
         </button>
       </div>
     </div>
@@ -335,11 +356,11 @@
     <div v-if="activeDrawerTab" class="contextual-drawer-panel">
       <div class="drawer-header">
         <div class="drawer-title">
-          <i :class="getDrawerTabIcon(activeDrawerTab)"></i>
+          <font-awesome-icon :icon="getDrawerTabIcon(activeDrawerTab)" />
           <h4>{{ getDrawerTabLabel(activeDrawerTab) }}</h4>
         </div>
         <button @click="activeDrawerTab = null" class="close-drawer-btn">
-          <i class="fas fa-times"></i>
+          <font-awesome-icon icon="fa-solid fa-times" />
         </button>
       </div>
       <div class="drawer-content">
@@ -350,11 +371,11 @@
           </div>
           <div class="tab-body">
             <div v-if="loading.cycle" class="loading-state">
-              <i class="fas fa-spinner fa-spin"></i>
+              <font-awesome-icon icon="fa-solid fa-spinner" spin />
               <span>Loading cycle...</span>
             </div>
             <div v-else-if="errors.cycle" class="error-state">
-              <i class="fas fa-exclamation-circle"></i>
+              <font-awesome-icon icon="fa-solid fa-exclamation-circle" />
               <span>{{ errors.cycle }}</span>
             </div>
             <draggable 
@@ -369,14 +390,14 @@
               <template #item="{element}">
                 <li class="cycle-config-item">
                   <div class="drag-handle">
-                    <i class="fas fa-grip-vertical"></i>
+                    <font-awesome-icon icon="fa-solid fa-grip-vertical" />
                   </div>
                   <div class="item-info">
                     <span class="item-name">{{ element.name }}</span>
                     <span class="item-id">ID: {{ element.logo_id }}</span>
                   </div>
                   <button @click="removeCycleItem(element.id)" class="remove-btn">
-                    <i class="fas fa-trash"></i>
+                    <font-awesome-icon icon="fa-solid fa-trash" />
                   </button>
                 </li>
               </template>
@@ -419,7 +440,7 @@
                   <input id="logo-path" type="text" v-model="newLogo.path" required readonly placeholder="Click button to select ->">
                   <!-- TODO: Add file picker button -->
                   <button type="button" @click="selectLogoFile" class="file-picker-btn" title="Select Logo Image File">
-                    <i class="fas fa-folder-open"></i>
+                    <font-awesome-icon icon="fa-solid fa-folder-open" />
                   </button>
                 </div>
               </div>
@@ -488,7 +509,7 @@
             <p>Configure upcoming logo schedules and DJ sets.</p>
           </div>
           <div class="tab-body placeholder-content">
-            <i class="fas fa-calendar-alt"></i>
+            <font-awesome-icon icon="fa-solid fa-calendar-alt" />
             <span>Schedule editing functionality coming soon!</span>
             <!-- Placeholder for schedule editor component or logic -->
           </div>
@@ -500,7 +521,7 @@
             <p>Browse and manage project-related files.</p>
           </div>
           <div class="tab-body placeholder-content">
-            <i class="fas fa-folder"></i>
+            <font-awesome-icon icon="fa-solid fa-folder" />
             <span>File browsing functionality coming soon!</span>
             <!-- Placeholder for file browser component or logic -->
           </div>
@@ -517,11 +538,11 @@
               :class="['notification-toast', `notification-${notification.type}`]"
             >
               <div class="notification-content">
-                 <i :class="getNotificationIcon(notification.type)"></i>
+                 <font-awesome-icon :icon="getNotificationIcon(notification.type)" />
                  <span>{{ notification.message }}</span>
               </div>
               <button @click="closeNotification(notification.id)" class="close-notification-btn">
-                <i class="fas fa-times"></i>
+                <font-awesome-icon icon="fa-solid fa-times" />
               </button>
             </div>
         </transition-group>
@@ -546,6 +567,10 @@ import { convertFileSrc } from '@tauri-apps/api/tauri';
 const grid = ref(null); // Holds the Gridstack instance
 const gridLayoutKey = 'vjtools-grid-layout'; // Key for localStorage
 const isLayoutLocked = ref(false); // State for layout lock
+
+// --- Search State ---
+const isSearchActive = ref(false);
+const searchInputRef = ref(null); // Ref for the search input element
 
 // --- Other State --- 
 const currentTime = ref(new Date());
@@ -1066,6 +1091,30 @@ function toggleGalleryFilter() { console.log("Toggle Gallery Filter"); }
 function toggleScheduleLock() { console.log("Toggle Schedule Lock"); }
 function refreshSchedule() { console.log("Refresh Schedule"); }
 
+// --- Search Activation/Deactivation ---
+const activateSearch = async () => {
+  isSearchActive.value = true;
+  await nextTick(); // Wait for input to become visible
+  searchInputRef.value?.focus();
+};
+
+const deactivateSearch = () => {
+  // Deactivate only if the input is empty after losing focus
+  // Use a small timeout to allow clicking potential clear buttons if added later
+  setTimeout(() => {
+      if (!gallerySearchTerm.value) {
+         isSearchActive.value = false;
+      }
+  }, 150);
+};
+
+const cancelSearch = () => {
+   gallerySearchTerm.value = '';
+   isSearchActive.value = false;
+   // Optionally blur the input if needed
+   searchInputRef.value?.blur();
+};
+
 </script>
 
 <style>
@@ -1336,10 +1385,74 @@ function refreshSchedule() { console.log("Refresh Schedule"); }
 /* Keep styles for .add-edit-forms, .add-form, .form-group, inputs, selects, buttons, .file-input-group, .file-picker-btn */
 
 /* Gallery Filter Styles */
-/* Keep styles for .section-filters, .filter-select, .filter-input */
+.filter-select,
+.filter-input { /* Base style for original input, keep if needed elsewhere */
+  padding: 4px 8px;
+  border-radius: 4px;
+  background-color: var(--background-color);
+  border: 1px solid var(--border-color);
+  color: var(--text-color);
+  font-size: 13px;
+  height: 28px; /* Match control buttons */
+  box-sizing: border-box;
+}
+
+.filter-select {
+  cursor: pointer;
+}
+
+/* Styles for Dynamic Search */
+.search-container {
+  display: flex;
+  align-items: center;
+}
+
+.search-toggle-btn {
+  /* Uses general .control-button styles */
+}
+
+.search-filter-dynamic {
+  padding: 4px 8px;
+  border-radius: 4px;
+  background-color: var(--background-color);
+  border: 1px solid var(--border-color);
+  color: var(--text-color);
+  font-size: 13px;
+  height: 28px;
+  box-sizing: border-box;
+  width: 0;
+  opacity: 0;
+  padding-left: 0;
+  padding-right: 0;
+  border-color: transparent;
+  transition: width 0.3s ease, opacity 0.3s ease, padding 0.3s ease, border-color 0.3s ease;
+  overflow: hidden; /* Prevent text showing during transition */
+}
+
+.search-container.active .search-filter-dynamic {
+  width: 150px; /* Adjust width as needed */
+  opacity: 1;
+  padding-left: 8px;
+  padding-right: 8px;
+  border-color: var(--border-color);
+  margin-left: 5px; /* Space between button and input when active */
+}
+
+/* Ensure controls container adapts */
+.section-controls {
+    /* display: flex; */ /* Already set */
+    /* gap: 8px; */ /* Already set */
+    /* align-items: center; */ /* Ensure vertical alignment */
+}
+
 
 /* Notification Styles */
-/* Keep styles for .notifications-container, .notification-toast, types, .close-notification-btn, transitions */
+.notifications-container {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 1000;
+}
 
 /* Gridstack Drag Handle Style Update */
 .drag-handle {
@@ -1360,14 +1473,15 @@ function refreshSchedule() { console.log("Refresh Schedule"); }
 /* ... drag handle hover styles ... */
 .drag-handle i {
   font-size: 13px;
-  /* Ensure Font Awesome styles are applied */
-  font-family: 'Font Awesome 6 Free', 'Font Awesome 6 Brands' !important; /* Added !important */
-  font-weight: 900 !important; /* Added !important */
-  display: inline-block !important; /* Added !important */
-  font-style: normal !important; /* Added !important */
-  font-variant: normal !important; /* Added !important */
-  text-rendering: auto !important; /* Added !important */
-  -webkit-font-smoothing: antialiased !important; /* Added !important */
+  font-family: 'Font Awesome 6 Free', 'Font Awesome 6 Brands' !important;
+  font-weight: 900 !important; /* Solid icons */
+  display: inline-block !important;
+  font-style: normal !important;
+  font-variant: normal !important;
+  text-rendering: auto !important;
+  -webkit-font-smoothing: antialiased !important;
+  line-height: 1; /* Ensure consistent line height */
+  vertical-align: middle; /* Align icon vertically */
 }
 
 /* Gridstack Resize Handle Styling - Revised */
@@ -1488,14 +1602,15 @@ function refreshSchedule() { console.log("Refresh Schedule"); }
 
 .control-button i {
   font-size: 13px;
-  /* Ensure Font Awesome styles are applied */
-  font-family: 'Font Awesome 6 Free', 'Font Awesome 6 Brands' !important; /* Added !important */
-  font-weight: 900 !important; /* Added !important */
-  display: inline-block !important; /* Added !important */
-  font-style: normal !important; /* Added !important */
-  font-variant: normal !important; /* Added !important */
-  text-rendering: auto !important; /* Added !important */
-  -webkit-font-smoothing: antialiased !important; /* Added !important */
+  font-family: 'Font Awesome 6 Free', 'Font Awesome 6 Brands' !important;
+  font-weight: 900 !important; /* Solid icons */
+  display: inline-block !important;
+  font-style: normal !important;
+  font-variant: normal !important;
+  text-rendering: auto !important;
+  -webkit-font-smoothing: antialiased !important;
+  line-height: 1; /* Ensure consistent line height */
+  vertical-align: middle; /* Align icon vertically */
 }
 
 /* Styling for collapsed state */

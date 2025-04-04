@@ -8,13 +8,13 @@
     </div>
     <div class="window-controls">
       <button class="window-control minimize" @click="minimizeWindow" title="Minimize">
-        <i class="fas fa-minus"></i>
+        <font-awesome-icon icon="fa-solid fa-minus" />
       </button>
       <button class="window-control maximize" @click="maximizeWindow" :title="isMaximized ? 'Restore' : 'Maximize'">
-        <i :class="isMaximized ? 'fas fa-clone' : 'fas fa-square'"></i>
+        <font-awesome-icon :icon="isMaximized ? 'fa-solid fa-clone' : 'fa-solid fa-square'" />
       </button>
       <button class="window-control close" @click="closeWindow" title="Close">
-        <i class="fas fa-times"></i>
+        <font-awesome-icon icon="fa-solid fa-times" />
       </button>
     </div>
   </div>
@@ -126,7 +126,7 @@ export default {
   background-color: var(--error-color);
 }
 
-.window-control i {
+.window-control svg {
   font-size: 12px;
 }
 
@@ -140,4 +140,4 @@ export default {
     height: 32px;
   }
 }
-</style> 
+</style>

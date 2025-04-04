@@ -1,5 +1,29 @@
 <template>
   <div class="settings-container">
+    <div class="settings-section">
+      <h3>Logo Library</h3>
+      <div class="setting-item">
+        <label>Library Location:</label>
+        <div class="path-input">
+          <input 
+            type="text" 
+            v-model="libraryPath" 
+            readonly 
+            placeholder="Click button to select folder"
+          >
+          <button @click="selectLibraryPath" class="browse-button" title="Browse for existing folder">
+            <font-awesome-icon icon="fa-solid fa-folder-open" />
+          </button>
+          <button @click="createLibrary" class="create-button" title="Create new library folder">
+            <font-awesome-icon icon="fa-solid fa-plus" />
+          </button>
+        </div>
+        <p class="setting-description">
+          Location where logo files will be stored and organized.
+          Changes will take effect after restart.
+        </p>
+      </div>
+    </div>
     <h2>Settings</h2>
     
     <div class="settings-section">
@@ -37,7 +61,7 @@
       <div class="settings-form">
         <div class="form-group">
           <label for="theme">Theme</label>
-          <select id="theme" v-model="settings.theme">
+          <select id="theme" v-model="appSettings.theme" @change="updateSetting('theme', $event.target.value)">
             <option value="dark">Dark</option>
             <option value="light">Light</option> 
             <option value="system">System Default</option>
@@ -46,7 +70,7 @@
         
         <div class="form-group">
           <label for="language">Language</label>
-          <select id="language" v-model="settings.language">
+          <select id="language" v-model="appSettings.language" @change="updateSetting('language', $event.target.value)">
             <option value="en">English</option>
             <option value="es">Spanish</option>
             <option value="fr">French</option>
@@ -56,7 +80,7 @@
         
         <div class="form-group">
           <label for="startup">Startup Behavior</label>
-          <select id="startup" v-model="settings.startup">
+          <select id="startup" v-model="appSettings.startup" @change="updateSetting('startup', $event.target.value)">
             <option value="normal">Normal</option>
             <option value="minimized">Start Minimized</option>
             <option value="maximized">Start Maximized</option>
@@ -76,54 +100,112 @@
 import { ref, onMounted } from 'vue';
 import { useModuleManager } from '../services/ModuleManager';
 
+import { useSettingsStore } from '../stores/settings';
+import { open } from '@tauri-apps/api/dialog';
+import { homeDir } from '@tauri-apps/api/path';
+
 export default {
   name: 'Settings',
   setup() {
+    const settings = useSettingsStore();
     const moduleManager = useModuleManager();
     
     const availableModules = moduleManager.modules;
-    
-    const settings = ref({
+    const libraryPath = ref('');
+    const appSettings = ref({
       theme: 'dark',
       language: 'en',
       startup: 'normal'
     });
-    
-    onMounted(async () => {
-      await moduleManager.init();
-      document.documentElement.setAttribute('data-theme', settings.value.theme);
-      console.log('Settings.vue: Modules loaded:', availableModules.value);
-    });
-    
+
     const toggleModule = async (moduleId) => {
       const module = availableModules.value.find(m => m.id === moduleId);
       if (module) {
         await moduleManager.toggleModule(moduleId);
       }
     };
-    
+
+    const updateSetting = (key, value) => {
+      appSettings.value[key] = value;
+      if (key === 'theme') {
+        document.documentElement.setAttribute('data-theme', value);
+      }
+    };
+
+    const createLibrary = async () => {
+      try {
+        // First, let user select parent directory
+        const parentDir = await open({
+          directory: true,
+          multiple: false,
+          defaultPath: await homeDir(),
+          title: 'Select where to create the LogoLibrary folder'
+        });
+
+        if (parentDir) {
+          const newPath = `${parentDir}/LogoLibrary`;
+          await settings.setLibraryPath(newPath);
+          libraryPath.value = newPath;
+        }
+      } catch (error) {
+        console.error('Failed to create library:', error);
+      }
+    };
+
+    const selectLibraryPath = async () => {
+      try {
+        const selected = await open({
+          directory: true,
+          multiple: false,
+          defaultPath: libraryPath.value
+        });
+
+        if (selected) {
+          await settings.setLibraryPath(selected);
+          libraryPath.value = selected;
+        }
+      } catch (error) {
+        console.error('Failed to select library path:', error);
+      }
+    };
+
     const saveSettings = async () => {
       try {
-        console.log('Saving settings:', settings.value);
-        document.documentElement.setAttribute('data-theme', settings.value.theme);
+        console.log('Saving settings:', appSettings.value);
+        document.documentElement.setAttribute('data-theme', appSettings.value.theme);
       } catch (err) {
         console.error('Error saving settings:', err);
       }
     };
-    
+
     const resetSettings = () => {
-      settings.value = {
+      appSettings.value = {
         theme: 'dark',
         language: 'en',
         startup: 'normal'
       };
-      document.documentElement.setAttribute('data-theme', settings.value.theme);
+      document.documentElement.setAttribute('data-theme', appSettings.value.theme);
     };
-    
+
+    onMounted(async () => {
+      try {
+        await settings.initialize();
+        libraryPath.value = settings.libraryPath;
+        await moduleManager.init();
+        document.documentElement.setAttribute('data-theme', appSettings.value.theme);
+      } catch (error) {
+        console.error('Failed to initialize settings:', error);
+      }
+    });
+
     return {
+      libraryPath,
       availableModules,
-      settings,
+      appSettings,
       toggleModule,
+      updateSetting,
+      selectLibraryPath,
+      createLibrary,
       saveSettings,
       resetSettings
     };
@@ -141,6 +223,65 @@ h2 {
   margin-bottom: 1.5rem;
   border-bottom: 1px solid var(--border-color);
   padding-bottom: 0.5rem;
+}
+
+.setting-item {
+  margin-bottom: 1rem;
+}
+
+.setting-item label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+}
+
+.path-input {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.path-input input {
+  flex: 1;
+  padding: 8px;
+  background-color: var(--background-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  color: var(--text-color);
+}
+
+.path-input button {
+  padding: 8px;
+  min-width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--button-bg);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  color: var(--text-color);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.path-input button:hover {
+  background-color: var(--button-hover-bg);
+}
+
+.path-input .create-button {
+  background-color: var(--primary-color);
+  color: white;
+}
+
+.path-input .create-button:hover {
+  background-color: var(--primary-hover-color);
+}
+
+.setting-description {
+  margin-top: 0.5rem;
+  font-size: 0.85rem;
+  color: rgba(var(--text-color-rgb), 0.7);
 }
 
 .settings-section {

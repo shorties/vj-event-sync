@@ -16,7 +16,7 @@
              Show Archived
           </label>
           <button class="btn-primary add-button" @click="triggerAddLogo">
-            <i class="fas fa-plus"></i> Add Logos
+            <font-awesome-icon icon="fa-solid fa-plus" /> Add Logos
           </button>
         </div>
         <div v-if="isLoading" class="loading-indicator">Loading logos...</div>
@@ -34,7 +34,7 @@
           >
             <img :src="logo.thumbnailUrl" :alt="logo.name" class="logo-thumbnail" />
             <span class="logo-name">{{ logo.name }}</span>
-            <span v-if="logo.isArchived" class="archived-badge"><i class="fas fa-archive"></i></span>
+            <span v-if="logo.isArchived" class="archived-badge"><font-awesome-icon icon="fa-solid fa-archive" /></span>
           </li>
         </ul>
         <div v-else class="empty-state">No {{ showArchived ? '' : 'active' }} logos found.</div>
@@ -65,21 +65,21 @@
                 class="btn-secondary archive-button" 
                 @click="archiveLogo(selectedLogo.id)"
               >
-               <i class="fas fa-archive"></i> Archive
+               <font-awesome-icon icon="fa-solid fa-archive" /> Archive
              </button>
              <button 
                 v-if="selectedLogo.isArchived"
                 class="btn-secondary unarchive-button" 
                 @click="unarchiveLogo(selectedLogo.id)"
              >
-               <i class="fas fa-box-open"></i> Unarchive
+               <font-awesome-icon icon="fa-solid fa-box-open" /> Unarchive
              </button>
              <button 
                 class="btn-danger delete-button" 
                 @click="confirmDeleteLogo(selectedLogo)"
                 :title="selectedLogo.isArchived ? 'Delete Permanently' : 'Delete'"
               >
-               <i class="fas fa-trash"></i> {{ selectedLogo.isArchived ? 'Delete Permanently' : 'Delete' }}
+               <font-awesome-icon icon="fa-solid fa-trash" /> {{ selectedLogo.isArchived ? 'Delete Permanently' : 'Delete' }}
              </button>
           </div>
         </div>

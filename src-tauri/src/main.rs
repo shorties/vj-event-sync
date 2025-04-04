@@ -3,6 +3,9 @@
     windows_subsystem = "windows"
 )]
 
+mod logo_library;
+mod file_explorer;
+
 use tauri::{Manager, Window, WindowBuilder, WindowUrl};
 use std::sync::Mutex;
 use std::process::Command;
@@ -170,6 +173,9 @@ fn current_timestamp() -> u64 {
         .as_secs()
 }
 
+use logo_library::{get_logo_library_path, save_logo_library_path, ensure_logo_library_directory};
+use file_explorer::list_directory_contents;
+
 fn main() {
     let state = AppState {
         db: Mutex::new(None),
@@ -197,7 +203,13 @@ fn main() {
             get_cycle_items,
             get_schedule_items,
             add_schedule_event,
-            set_cycle_config
+            set_cycle_config,
+            // Logo library commands
+            get_logo_library_path,
+            save_logo_library_path,
+            ensure_logo_library_directory,
+            // File explorer commands
+            list_directory_contents
         ])
         .setup(|app| {
             // Check if the window already exists
