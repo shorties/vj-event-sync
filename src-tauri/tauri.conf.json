@@ -2,7 +2,7 @@
   "build": {
     "beforeDevCommand": "npm run dev",
     "beforeBuildCommand": "npm run build",
-    "devPath": "http://localhost:3000",
+    "devPath": "http://localhost:3002",
     "distDir": "../dist"
   },
   "package": {
@@ -11,33 +11,18 @@
   },
   "tauri": {
     "allowlist": {
-      "all": false,
-      "shell": {
-        "all": false,
-        "open": true
-      },
-      "window": {
-        "all": true
-      },
-      "fs": {
-        "all": true,
-        "readFile": true,
-        "writeFile": true,
-        "readDir": true,
-        "copyFile": true,
-        "createDir": true,
-        "removeDir": true,
-        "removeFile": true,
-        "renameFile": true,
-        "exists": true
-      }
+      "all": true
     },
     "bundle": {
       "active": true,
       "targets": "all",
-      "identifier": "com.vjeventsync.app",
+      "identifier": "com.vj.tools",
       "icon": [
-        "icons/VJToolsRounded.ico"
+        "icons/32x32.png",
+        "icons/128x128.png",
+        "icons/128x128@2x.png",
+        "icons/icon.icns",
+        "icons/icon.ico"
       ]
     },
     "security": {
@@ -51,12 +36,7 @@
         "resizable": true,
         "title": "VJ.Tools",
         "width": 1200,
-        "height": 800,
-        "minWidth": 800,
-        "minHeight": 600,
-        "transparent": true,
-        "decorations": false,
-        "center": true
+        "height": 800
       }
     ]
   }

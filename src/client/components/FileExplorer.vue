@@ -1,52 +1,88 @@
-&lt;template&gt;
-  &lt;div class="file-explorer"&gt;
-    &lt;div class="path-navigation"&gt;
-      &lt;button @click="navigateUp" class="nav-button" title="Go Up"&gt;
-        &lt;font-awesome-icon icon="fa-solid fa-arrow-up" /&gt;
-      &lt;/button&gt;
-      &lt;div class="current-path"&gt;
-        &lt;span v-for="(part, index) in pathParts" :key="index" class="path-part"&gt;
-          &lt;span 
+<template>
+  <div class="file-explorer">
+    <!-- Error Display -->
+    <div v-if="error" class="error-message">
+      <font-awesome-icon icon="fa-solid fa-exclamation-circle" />
+      <span>{{ error }}</span>
+      <button @click="retryLastOperation" class="retry-button">
+        <font-awesome-icon icon="fa-solid fa-sync" /> Retry
+      </button>
+    </div>
+
+    <!-- Path Navigation -->
+    <div class="path-navigation">
+      <button 
+        @click="navigateUp" 
+        class="nav-button" 
+        title="Go Up"
+        :disabled="!currentPath || isLoading"
+      >
+        <font-awesome-icon icon="fa-solid fa-arrow-up" />
+      </button>
+      <div class="current-path">
+        <span v-for="(part, index) in pathParts" :key="index" class="path-part">
+          <span 
             class="path-segment" 
             @click="navigateToIndex(index)"
             :title="part"
-          &gt;{{ part }}&lt;/span&gt;
-          &lt;font-awesome-icon 
+          >{{ part }}</span>
+          <font-awesome-icon 
             v-if="index < pathParts.length - 1" 
             icon="fa-solid fa-chevron-right" 
             class="path-separator"
-          /&gt;
-        &lt;/span&gt;
-      &lt;/div&gt;
-    &lt;/div&gt;
+          />
+        </span>
+      </div>
+    </div>
 
-    &lt;div class="file-list" ref="fileList"&gt;
-      &lt;div 
+    <!-- File List -->
+    <div class="file-list" ref="fileList">
+      <!-- Loading State -->
+      <div v-if="isLoading" class="loading-state">
+        <font-awesome-icon icon="fa-solid fa-spinner" spin />
+        <span>Loading...</span>
+      </div>
+      
+      <!-- Empty State -->
+      <div v-else-if="items.length === 0" class="empty-state">
+        <font-awesome-icon icon="fa-solid fa-folder-open" />
+        <span>This folder is empty</span>
+      </div>
+      
+      <!-- File Items -->
+      <div 
+        v-else
         v-for="item in sortedItems" 
         :key="item.path"
         class="file-item"
+        :class="{ selected: selectedItem?.path === item.path }"
         @click="handleItemClick(item)"
         @dblclick="navigateToItem(item)"
-      &gt;
-        &lt;font-awesome-icon 
+      >
+        <font-awesome-icon 
           :icon="item.type === 'directory' ? 'fa-solid fa-folder' : 'fa-solid fa-file'"
           :class="item.type"
-        /&gt;
-        &lt;span class="item-name" :title="item.name"&gt;{{ item.name }}&lt;/span&gt;
-      &lt;/div&gt;
-    &lt;/div&gt;
-  &lt;/div&gt;
-&lt;/template&gt;
+        />
+        <span class="item-name" :title="item.name">{{ item.name }}</span>
+      </div>
+    </div>
+  </div>
+</template>
 
-&lt;script setup&gt;
+<script setup>
 import { ref, computed, onMounted } from 'vue';
 import { invoke } from '@tauri-apps/api/tauri';
 import { homeDir } from '@tauri-apps/api/path';
 
+// State
 const currentPath = ref('');
 const items = ref([]);
 const selectedItem = ref(null);
+const isLoading = ref(false);
+const error = ref(null);
+let lastOperation = null;
 
+// Computed
 const pathParts = computed(() => {
   return currentPath.value.split(/[/\\]/).filter(Boolean);
 });
@@ -61,17 +97,29 @@ const sortedItems = computed(() => {
   });
 });
 
+// Methods
 const loadDirectory = async (path) => {
   try {
+    console.log('Loading directory:', path);
+    isLoading.value = true;
+    error.value = null;
+    lastOperation = path;
+    
     const contents = await invoke('list_directory_contents', { path });
+    console.log('Directory contents:', contents);
     items.value = contents;
     currentPath.value = path;
-  } catch (error) {
-    console.error('Failed to load directory:', error);
+  } catch (err) {
+    console.error('Failed to load directory:', err);
+    error.value = err.toString();
+  } finally {
+    isLoading.value = false;
   }
 };
 
 const navigateUp = async () => {
+  if (!currentPath.value || isLoading.value) return;
+  
   const parentPath = currentPath.value.split(/[/\\]/).slice(0, -1).join('/');
   if (parentPath) {
     await loadDirectory(parentPath);
@@ -79,11 +127,15 @@ const navigateUp = async () => {
 };
 
 const navigateToIndex = async (index) => {
+  if (isLoading.value) return;
   const newPath = pathParts.value.slice(0, index + 1).join('/');
-  await loadDirectory(newPath);
+  if (newPath) {
+    await loadDirectory(newPath);
+  }
 };
 
 const navigateToItem = async (item) => {
+  if (isLoading.value) return;
   if (item.type === 'directory') {
     await loadDirectory(item.path);
   }
@@ -91,21 +143,66 @@ const navigateToItem = async (item) => {
 
 const handleItemClick = (item) => {
   selectedItem.value = item;
+  // Emit selected item for parent components
+  emit('itemSelected', item);
 };
 
-onMounted(async () => {
-  const home = await homeDir();
-  await loadDirectory(home);
-});
-&lt;/script&gt;
+const retryLastOperation = async () => {
+  if (lastOperation) {
+    await loadDirectory(lastOperation);
+  }
+};
 
-&lt;style scoped&gt;
+// Lifecycle
+onMounted(async () => {
+  try {
+    const home = await homeDir();
+    console.log('Starting at home directory:', home);
+    await loadDirectory(home);
+  } catch (err) {
+    console.error('Error during FileExplorer mount:', err);
+    error.value = err.toString();
+  }
+});
+
+// Emits
+const emit = defineEmits(['itemSelected']);
+</script>
+
+<style scoped>
 .file-explorer {
   display: flex;
   flex-direction: column;
   height: 100%;
   background: var(--background-color);
-  border-radius: var(--border-radius);
+  color: var(--text-color);
+}
+
+.error-message {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: rgba(255, 0, 0, 0.1);
+  color: #ff4444;
+  border-bottom: 1px solid rgba(255, 0, 0, 0.2);
+}
+
+.retry-button {
+  margin-left: auto;
+  padding: 4px 8px;
+  background: transparent;
+  border: 1px solid currentColor;
+  border-radius: 4px;
+  color: inherit;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.retry-button:hover {
+  background: rgba(255, 0, 0, 0.1);
 }
 
 .path-navigation {
@@ -132,8 +229,13 @@ onMounted(async () => {
   transition: all 0.2s ease;
 }
 
-.nav-button:hover {
+.nav-button:hover:not(:disabled) {
   background: var(--button-hover-bg);
+}
+
+.nav-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .current-path {
@@ -178,6 +280,18 @@ onMounted(async () => {
   gap: 8px;
 }
 
+.loading-state, .empty-state {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 32px;
+  color: var(--text-color-muted);
+  font-size: 0.9em;
+}
+
 .file-item {
   display: flex;
   flex-direction: column;
@@ -191,6 +305,11 @@ onMounted(async () => {
   &:hover {
     background: var(--button-hover-bg);
   }
+  
+  &.selected {
+    background: var(--primary-color);
+    color: white;
+  }
 }
 
 .file-item .directory {
@@ -201,12 +320,17 @@ onMounted(async () => {
   color: var(--text-color-muted);
 }
 
+.selected .directory,
+.selected .file {
+  color: white;
+}
+
 .item-name {
   font-size: 0.9em;
   text-align: center;
+  width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
-  width: 100%;
   white-space: nowrap;
 }
-&lt;/style&gt;
+</style>

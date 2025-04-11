@@ -1,5 +1,5 @@
 <template>
-  <div class="app-container">
+  <div class="app-container" :class="{ 'dragging-over-app': isDraggingOverApp }">
     <TitleBar />
     <div class="main-content">
       <div class="sidebar" :class="{ 'sidebar-collapsed': isSidebarCollapsed }">
@@ -29,83 +29,7 @@
           <span>{{ error.message }}</span>
         </div>
         <div v-else>
-          <div class="logo-section">
-            <div class="section-header">
-              <div class="drag-handle" title="Move Section">
-                <font-awesome-icon icon="fa-solid fa-grip-vertical" />
-              </div>
-              <h4 class="section-title">
-                <font-awesome-icon :icon="activeTab === 'gallery' ? 'fa-solid fa-th-large' : 'fa-solid fa-folder'" />
-                {{ activeTab === 'gallery' ? 'LOGO GALLERY' : 'FILE EXPLORER' }}
-                <span v-if="selectedArtist && activeTab === 'gallery'" class="selected-artist">
-                  - {{ selectedArtist }}
-                </span>
-              </h4>
-              <div class="section-controls">
-                <div class="tab-controls">
-                  <button 
-                    class="tab-button" 
-                    :class="{ active: activeTab === 'gallery' }" 
-                    @click="activeTab = 'gallery'"
-                    title="Logo Gallery"
-                  >
-                    <font-awesome-icon icon="fa-solid fa-th-large" />
-                  </button>
-                  <button 
-                    class="tab-button" 
-                    :class="{ active: activeTab === 'explorer' }" 
-                    @click="activeTab = 'explorer'"
-                    title="File Explorer"
-                  >
-                    <font-awesome-icon icon="fa-solid fa-folder" />
-                  </button>
-                </div>
-                <button 
-                  v-if="activeTab === 'gallery'" 
-                  class="control-button" 
-                  title="Filter Gallery" 
-                  @click="toggleFilterPanel"
-                >
-                  <font-awesome-icon icon="fa-solid fa-filter" />
-                </button>
-                <select 
-                  v-if="activeTab === 'gallery'" 
-                  class="filter-select artist-filter" 
-                  title="Filter by Artist"
-                  v-model="selectedArtist"
-                >
-                  <option value="">All Artists</option>
-                  <option v-for="artist in artists" :key="artist.id" :value="artist.name">
-                    {{ artist.name }}
-                  </option>
-                </select>
-                <div v-if="activeTab === 'gallery'" class="search-container">
-                  <button class="control-button search-toggle-btn" title="Search Logos">
-                    <font-awesome-icon icon="fa-solid fa-search" />
-                  </button>
-                  <input 
-                    type="text" 
-                    v-model="searchQuery" 
-                    placeholder="Search..." 
-                    class="filter-input search-filter-dynamic"
-                  >
-                </div>
-              </div>
-            </div>
-            <div class="section-content">
-              <div v-if="activeTab === 'gallery'" class="logo-gallery" ref="logoGallery">
-                <div v-for="logo in filteredLogos" :key="logo.id" class="logo-item">
-                  <div class="logo-preview">
-                    <img :src="logo.thumbnail_path || logo.file_path" :alt="logo.name">
-                  </div>
-                  <div class="logo-info">
-                    <span class="logo-name">{{ logo.name }}</span>
-                  </div>
-                </div>
-              </div>
-              <FileExplorer v-else class="file-explorer-container" />
-            </div>
-          </div>
+          <component :is="currentModuleComponent" />
         </div>
       </div>
     </div>
@@ -113,7 +37,9 @@
 </template>
 
 <script>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, shallowRef, onUnmounted } from 'vue';
+import { listen } from '@tauri-apps/api/event';
+import { invoke } from '@tauri-apps/api/tauri';
 import FileExplorer from './components/FileExplorer.vue';
 import TitleBar from './components/TitleBar.vue';
 import { useModuleManager } from './services/ModuleManager';
@@ -135,7 +61,36 @@ export default {
     const artists = ref([]);
     const logos = ref([]);
     const showFilterPanel = ref(false);
+    const isDraggingOverApp = ref(false);
     
+    let unlistenDropApp = null;
+    let unlistenHoverApp = null;
+    let unlistenCancelApp = null;
+
+    const appAddLogos = async (paths) => {
+      console.log('[App.vue] Received file paths:', paths);
+      const imageExtensions = ['.png', '.jpg', '.jpeg', '.gif', '.svg', '.webp'];
+      const validImagePaths = paths.filter(path => 
+         imageExtensions.some(ext => path.toLowerCase().endsWith(ext))
+      );
+      
+      if (validImagePaths.length === 0) {
+          console.log("[App.vue] No valid image files found in dropped items.");
+          return;
+      }
+      
+      console.log("[App.vue] Adding valid logos from paths:", validImagePaths);
+      try {
+        for (const path of validImagePaths) {
+           console.log(`[App.vue] Invoking add_logo (needs backend): ${path}`);
+        }
+        console.warn("[App.vue] Need to implement logo list refresh after adding.");
+
+      } catch (err) {
+        console.error('[App.vue] Error adding logo(s):', err);
+      }
+    };
+
     const filteredLogos = computed(() => {
       return logos.value.filter(logo => {
         const matchesSearch = searchQuery.value === '' || 
@@ -156,11 +111,28 @@ export default {
 
     const currentModuleComponent = computed(() => {
       const module = moduleManager.modules.value.find(m => m.id === currentModule.value);
-      return module ? module.component : null;
+      const component = module ? module.component : null;
+      console.log(`[App.vue] currentModuleComponent computed: ID=${currentModule.value}, Component=${component ? component.name || component.__name || '(Unknown Component Name)' : 'null'}`);
+      return component;
     });
 
     const selectModule = (moduleId) => {
-      currentModule.value = moduleId;
+      console.log(`[App.vue] selectModule called with ID: ${moduleId}`);
+      try {
+        const targetModule = moduleManager.modules.value.find(m => m.id === moduleId);
+        if (!targetModule) {
+          console.error(`[App.vue] Module ${moduleId} not found`);
+          return;
+        }
+        if (!targetModule.enabled && !targetModule.required) {
+          console.error(`[App.vue] Module ${moduleId} is disabled`);
+          return;
+        }
+        currentModule.value = moduleId;
+        console.log(`[App.vue] currentModule ref updated to: ${currentModule.value}`);
+      } catch (err) {
+        console.error(`[App.vue] Error switching to module ${moduleId}:`, err);
+      }
     };
 
     const toggleSidebar = () => {
@@ -184,10 +156,41 @@ export default {
         console.log('App.vue: Available modules:', availableModules.value);
         console.log('App.vue: Current module ID:', currentModule.value);
         console.log('App.vue: Current module component:', currentModuleComponent.value);
-      } catch (err) {
-        console.error('App.vue: Error during mount:', err);
-        error.value = err;
+
+        try {
+          unlistenHoverApp = await listen('tauri://file-drop-hover', (event) => {
+            console.log('[App.vue] File drop hover detected');
+            isDraggingOverApp.value = true;
+          });
+          unlistenDropApp = await listen('tauri://file-drop', (event) => {
+            console.log('[App.vue] File drop detected', event.payload);
+            if (Array.isArray(event.payload)) { 
+               appAddLogos(event.payload);
+            } else {
+               console.warn('[App.vue] Received non-array payload for file drop');
+            }
+            isDraggingOverApp.value = false;
+          });
+          unlistenCancelApp = await listen('tauri://file-drop-cancelled', (event) => {
+              console.log('[App.vue] File drop cancelled');
+              isDraggingOverApp.value = false;
+          });
+          console.log('[App.vue] Tauri file drop listeners attached.');
+        } catch (listenerError) {
+          console.error('[App.vue] Failed to attach Tauri file drop listeners:', listenerError);
+        }
+
+      } catch (mountError) {
+        console.error('App.vue: Error during mount:', mountError);
+        error.value = mountError;
       }
+    });
+
+    onUnmounted(() => {
+      if (unlistenHoverApp) unlistenHoverApp();
+      if (unlistenDropApp) unlistenDropApp();
+      if (unlistenCancelApp) unlistenCancelApp();
+      console.log('[App.vue] App component unmounted, listeners detached.');
     });
 
     return {

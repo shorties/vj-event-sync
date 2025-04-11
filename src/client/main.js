@@ -16,7 +16,8 @@ import {
   faInbox, faThLarge, faFilter, faSearch, faImage, faPaintBrush, faTags, 
   faLink, faFile, faPlusCircle, faCalendarAlt, faUndo, faSave, 
   faGripVertical, faTrash, faFolderOpen, faFolder, faPlus, faArchive, 
-  faBoxOpen, faChevronRight, faChevronLeft
+  faBoxOpen, faChevronRight, faChevronLeft, faUsers, faArrowUp,
+  faNetworkWired, faBroadcastTower, faComments
 } from '@fortawesome/free-solid-svg-icons';
 
 /* add icons to the library */
@@ -26,7 +27,8 @@ library.add(
   faInbox, faThLarge, faFilter, faSearch, faImage, faPaintBrush, faTags, 
   faLink, faFile, faPlusCircle, faCalendarAlt, faUndo, faSave, 
   faGripVertical, faTrash, faFolderOpen, faFolder, faPlus, faArchive, 
-  faBoxOpen, faChevronRight, faChevronLeft
+  faBoxOpen, faChevronRight, faChevronLeft, faUsers, faArrowUp,
+  faNetworkWired, faBroadcastTower, faComments
 );
 
 // Create Vue app

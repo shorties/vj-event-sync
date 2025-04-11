@@ -1,0 +1,127 @@
+/* Dark Mode Styles */
+[data-theme="dark"] {
+  /* Base Colors */
+  --brand: #64b5f6;
+  --brand-light: rgba(100, 181, 246, 0.1);
+  --brand-dark: #42a5f5;
+  
+  /* Surface Colors */
+  --surface-1: var(--dark-surface-1);
+  --surface-2: var(--dark-surface-2);
+  --surface-3: var(--dark-surface-3);
+  --surface-4: var(--dark-surface-4);
+  
+  /* Text Colors */
+  --text-1: var(--dark-text-1);
+  --text-2: var(--dark-text-2);
+  --text-3: var(--dark-text-3);
+  
+  /* Status Colors */
+  --success: #81c784;
+  --warning: #ffb74d;
+  --error: #e57373;
+  --info: #64b5f6;
+  
+  /* Overlay Colors */
+  --overlay-light: rgba(255, 255, 255, 0.1);
+  --overlay-dark: rgba(0, 0, 0, 0.8);
+  
+  /* Shadows */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.2);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.3);
+  
+  /* Component Specific */
+  --card-shadow: 0 4px 6px rgba(0, 0, 0, 0.4);
+  
+  /* Form Elements */
+  --input-border: 1px solid var(--dark-surface-3);
+  --input-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.2);
+  
+  /* Schedule Grid */
+  .schedule-grid {
+    background: var(--dark-surface-1);
+  }
+  
+  .time-column {
+    background: var(--dark-surface-2);
+  }
+  
+  .grid-header {
+    background: var(--dark-surface-3);
+    border-bottom-color: var(--dark-surface-4);
+  }
+  
+  .time-slot {
+    border-bottom-color: var(--dark-surface-3);
+  }
+  
+  .schedule-item {
+    background: var(--brand-light);
+    
+    &:hover {
+      background: var(--brand);
+    }
+  }
+  
+  /* File Explorer */
+  .file-input button {
+    background: var(--dark-surface-2);
+    border-color: var(--dark-surface-3);
+    
+    &:hover {
+      background: var(--dark-surface-3);
+    }
+  }
+  
+  /* Tags */
+  .tag {
+    background: var(--dark-surface-2);
+    
+    button {
+      color: var(--dark-text-2);
+      
+      &:hover {
+        color: var(--dark-text-1);
+      }
+    }
+  }
+  
+  .available-tags button {
+    background: var(--dark-surface-2);
+    border-color: var(--dark-surface-3);
+    
+    &:hover:not(:disabled) {
+      background: var(--dark-surface-3);
+    }
+  }
+  
+  /* Settings */
+  .setting-item {
+    border-bottom-color: var(--dark-surface-3);
+  }
+  
+  select {
+    background: var(--dark-surface-2);
+    border-color: var(--dark-surface-3);
+    color: var(--dark-text-1);
+    
+    &:focus {
+      border-color: var(--brand);
+    }
+  }
+  
+  input[type="checkbox"] {
+    background: var(--dark-surface-2);
+    border-color: var(--dark-surface-3);
+    
+    &:checked {
+      background: var(--brand);
+      border-color: var(--brand);
+    }
+    
+    &:focus {
+      border-color: var(--brand);
+    }
+  }
+} 

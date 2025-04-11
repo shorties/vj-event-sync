@@ -14,9 +14,15 @@ export default defineConfig({
     }
   },
   server: {
-    port: 3000,
+    port: 3002,
     strictPort: true,
-    host: true
+    host: true,
+    cors: true,
+    hmr: {
+      protocol: 'ws',
+      host: 'localhost',
+      port: 3002
+    }
   },
   build: {
     target: ['es2021', 'chrome100', 'safari13'],

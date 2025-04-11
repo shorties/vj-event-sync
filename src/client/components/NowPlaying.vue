@@ -4,9 +4,13 @@
     <div class="top-bar">
       <div class="now-showing">
         <div class="now-showing-title">NOW SHOWING</div>
-        <div class="now-showing-preview">
+        <div 
+          class="now-showing-preview"
+          @dragover.prevent 
+          @drop="handleDropOnNowPlaying"
+        >
           <div class="preview-content">
-            <font-awesome-icon icon="fa-solid fa-play-circle" />
+            <font-awesome-icon :icon="currentlyShowing?.icon || 'fa-solid fa-play-circle'" />
             <span>{{ currentlyShowing?.name || 'No content playing' }}</span>
           </div>
           <div class="progress-bar-container">
@@ -426,92 +430,118 @@
         </div>
 
         <div v-else-if="activeDrawerTab === 'EditAdd'" class="drawer-tab-content">
-          <div class="add-edit-forms">
-            <!-- Add New Logo Form -->
-            <form @submit.prevent="handleAddLogo" class="add-form">
-              <h5>Add New Logo</h5>
+          <div class="tab-header">
+            <h5>Edit/Add Content</h5>
+            <p>Add new content or edit existing items.</p>
+          </div>
+          <div class="tab-body">
+            <form class="edit-form" @submit.prevent="handleSubmit">
               <div class="form-group">
-                <label for="logo-name">Name:</label>
-                <input id="logo-name" type="text" v-model="newLogo.name" required>
+                <label>Title</label>
+                <input type="text" v-model="editForm.title" placeholder="Enter title" required>
               </div>
+              
               <div class="form-group">
-                <label for="logo-path">File Path:</label>
-                <div class="file-input-group">
-                  <input id="logo-path" type="text" v-model="newLogo.path" required readonly placeholder="Click button to select ->">
-                  <!-- TODO: Add file picker button -->
-                  <button type="button" @click="selectLogoFile" class="file-picker-btn" title="Select Logo Image File">
-                    <font-awesome-icon icon="fa-solid fa-folder-open" />
+                <label>Artist</label>
+                <input type="text" v-model="editForm.artist" placeholder="Enter artist name" required>
+              </div>
+              
+              <div class="form-group">
+                <label>Duration</label>
+                <input type="text" v-model="editForm.duration" placeholder="HH:MM:SS" required>
+              </div>
+              
+              <div class="form-group">
+                <label>Media File</label>
+                <div class="file-input">
+                  <button type="button" @click="handleFileSelect">
+                    <font-awesome-icon icon="fa-solid fa-upload" />
+                    Choose File
                   </button>
+                  <span v-if="editForm.file">{{ editForm.file }}</span>
+                  <span v-else class="placeholder">No file selected</span>
                 </div>
               </div>
+              
               <div class="form-group">
-                <label for="logo-artist">Artist:</label>
-                <select id="logo-artist" v-model="newLogo.artist_id">
-                  <option :value="null">Unknown</option>
-                  <option v-for="artist in artists" :key="artist.id" :value="artist.id">
-                    {{ artist.name }}
-                  </option>
-                </select>
+                <label>Tags</label>
+                <div class="tags-input">
+                  <div class="selected-tags">
+                    <span v-for="tag in editForm.tags" :key="tag" class="tag">
+                      {{ tag }}
+                      <button type="button" @click="removeTag(tag)">
+                        <font-awesome-icon icon="fa-solid fa-times" />
+                      </button>
+                    </span>
+                  </div>
+                  <div class="available-tags">
+                    <button 
+                      type="button"
+                      v-for="tag in availableTags" 
+                      :key="tag"
+                      @click="addTag(tag)"
+                      :disabled="editForm.tags.includes(tag)">
+                      {{ tag }}
+                    </button>
+                  </div>
+                </div>
               </div>
+              
               <div class="form-group">
-                <label for="logo-tags">Tags (comma-separated):</label>
-                <input id="logo-tags" type="text" v-model="newLogo.tags">
+                <label>Notes</label>
+                <textarea v-model="editForm.notes" placeholder="Enter any additional notes"></textarea>
               </div>
-              <button type="submit" :disabled="loading.addLogo">Add Logo</button>
-              <!-- REMOVE status message P tag -->
-              <!-- <p v-if="addLogoStatus" :class="{ error: errors.addLogo }">{{ addLogoStatus }}</p> -->
-            </form>
-
-            <!-- Add Schedule Event Form -->
-            <form @submit.prevent="handleAddNewScheduleEvent" class="add-form">
-              <h5>Add Schedule Event</h5>
-              <div class="form-group">
-                <label for="event-time">Time (HH:MM):</label>
-                <input id="event-time" v-model="newEvent.time" type="time" required />
+              
+              <div class="form-actions">
+                <button type="submit" class="submit-btn">
+                  <font-awesome-icon icon="fa-solid fa-save" />
+                  Save
+                </button>
               </div>
-              <div class="form-group">
-                <label for="event-name">Name / DJ:</label>
-                <input id="event-name" v-model="newEvent.name" type="text" required />
-              </div>
-              <div class="form-group">
-                <label for="event-type">Type:</label>
-                <select id="event-type" v-model="newEvent.type" required>
-                  <option value="dj_set">DJ Set</option>
-                  <option value="sponsor_slot">Sponsor Slot</option>
-                  <option value="special_visual">Special Visual</option>
-                  <option value="intermission">Intermission</option>
-                  <option value="manual_trigger">Manual Trigger Point</option>
-                </select>
-              </div>
-              <div class="form-group">
-                <label for="event-duration">Duration (seconds, 0 or empty for indefinite):</label>
-                <input id="event-duration" v-model.number="newEvent.duration" type="number" min="0" />
-              </div>
-              <div class="form-group">
-                <label for="event-logo">Link Logo (Optional):</label>
-                <select id="event-logo" v-model="newEvent.linkedLogoId">
-                  <option value="">-- None --</option>
-                  <option v-for="logo in galleryItems" :key="logo.id" :value="logo.id">
-                    {{ logo.name }}
-                  </option>
-                </select>
-              </div>
-              <button type="submit">Add Event</button>
-              <!-- REMOVE status message P tag -->
-              <!-- <p v-if="addEventStatus" :class="{ error: addEventError }">{{ addEventStatus }}</p> -->
             </form>
           </div>
         </div>
 
         <div v-else-if="activeDrawerTab === 'Schedule'" class="drawer-tab-content">
           <div class="tab-header">
-            <h5>Logo Schedule Editor</h5>
-            <p>Configure upcoming logo schedules and DJ sets.</p>
+            <h5>Schedule</h5>
+            <p>Manage your broadcast schedule.</p>
+            <button class="add-schedule-btn" @click="addScheduleItem">
+              <font-awesome-icon icon="fa-solid fa-plus" />
+              Add Show
+            </button>
           </div>
-          <div class="tab-body placeholder-content">
-            <font-awesome-icon icon="fa-solid fa-calendar-alt" />
-            <span>Schedule editing functionality coming soon!</span>
-            <!-- Placeholder for schedule editor component or logic -->
+          <div class="tab-body">
+            <div class="schedule-grid">
+              <div class="time-column">
+                <div class="grid-header">Time</div>
+                <div v-for="time in timeSlots" :key="time" class="time-slot">
+                  {{ time }}
+                </div>
+              </div>
+              <div v-for="day in days" :key="day" class="day-column">
+                <div class="grid-header">{{ day }}</div>
+                <div class="day-slots">
+                  <div v-for="item in scheduleItems" 
+                       v-if="item.days.includes(day)"
+                       :key="item.id"
+                       class="schedule-item"
+                       :style="{
+                         top: `${(parseInt(item.start.split(':')[0]) * 60) + parseInt(item.start.split(':')[1])}px`,
+                         height: `${((parseInt(item.end.split(':')[0]) * 60) + parseInt(item.end.split(':')[1])) - 
+                                  ((parseInt(item.start.split(':')[0]) * 60) + parseInt(item.start.split(':')[1]))}px`
+                       }">
+                    <div class="item-content">
+                      <h6>{{ item.title }}</h6>
+                      <p>{{ item.start }} - {{ item.end }}</p>
+                      <button class="remove-btn" @click="removeScheduleItem(item.id)">
+                        <font-awesome-icon icon="fa-solid fa-times" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -520,10 +550,45 @@
             <h5>File Browser</h5>
             <p>Browse and manage project-related files.</p>
           </div>
-          <div class="tab-body placeholder-content">
-            <font-awesome-icon icon="fa-solid fa-folder" />
-            <span>File browsing functionality coming soon!</span>
-            <!-- Placeholder for file browser component or logic -->
+          <div class="tab-body">
+            <FileExplorer />
+          </div>
+        </div>
+
+        <div v-else-if="activeDrawerTab === 'Settings'" class="drawer-tab-content">
+          <div class="tab-header">
+            <h5>Settings</h5>
+            <p>Customize your VJ.Tools experience.</p>
+          </div>
+          <div class="tab-body">
+            <div class="settings-form">
+              <div class="setting-group">
+                <h6>Appearance</h6>
+                <div class="setting-item">
+                  <label>Theme</label>
+                  <select v-model="settings.theme" @change="updateSetting('theme', $event.target.value)">
+                    <option value="system">System</option>
+                    <option value="light">Light</option>
+                    <option value="dark">Dark</option>
+                  </select>
+                </div>
+                <div class="setting-item">
+                  <label>Compact Mode</label>
+                  <input type="checkbox" v-model="settings.compactMode" @change="updateSetting('compactMode', $event.target.checked)">
+                </div>
+              </div>
+              <div class="setting-group">
+                <h6>Preferences</h6>
+                <div class="setting-item">
+                  <label>Auto Save</label>
+                  <input type="checkbox" v-model="settings.autoSave" @change="updateSetting('autoSave', $event.target.checked)">
+                </div>
+                <div class="setting-item">
+                  <label>Notifications</label>
+                  <input type="checkbox" v-model="settings.notifications" @change="updateSetting('notifications', $event.target.checked)">
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -552,39 +617,69 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted, onUnmounted, nextTick } from 'vue';
+import { ref, reactive, computed, onMounted, onUnmounted, nextTick, watch, shallowRef } from 'vue';
 import { invoke } from '@tauri-apps/api/tauri';
-import { listen } from '@tauri-apps/api/event'; // Import listen for menu events
-import 'gridstack/dist/gridstack.min.css'; // Import Gridstack CSS (Ensure uncommented)
-import { GridStack } from 'gridstack'; // Import Gridstack JS
-// import 'gridstack/dist/h5/gridstack-dd-native'; // Comment out potentially problematic import
-import { appWindow } from '@tauri-apps/api/window'; // Import appWindow
-import draggable from 'vuedraggable'; // Import vuedraggable
-import { open } from '@tauri-apps/api/dialog'; // <-- Import dialog API
+import { getCurrent } from '@tauri-apps/api/window';
+import { listen } from '@tauri-apps/api/event';
+import 'gridstack/dist/gridstack.min.css';
+import { GridStack } from 'gridstack';
+import draggable from 'vuedraggable';
+import { open } from '@tauri-apps/api/dialog';
 import { convertFileSrc } from '@tauri-apps/api/tauri';
+import FileExplorer from './FileExplorer.vue';
 
 // --- Gridstack State --- 
-const grid = ref(null); // Holds the Gridstack instance
-const gridLayoutKey = 'vjtools-grid-layout'; // Key for localStorage
-const isLayoutLocked = ref(false); // State for layout lock
+const grid = ref(null);
+const gridLayoutKey = 'vjtools-grid-layout';
+const isLayoutLocked = ref(false);
 
 // --- Search State ---
 const isSearchActive = ref(false);
-const searchInputRef = ref(null); // Ref for the search input element
+const searchInputRef = ref(null);
 
 // --- Other State --- 
 const currentTime = ref(new Date());
-const is24HourFormat = ref(true); // Default to 24-hour format
-const currentTimeZone = ref('local'); // 'local' or 'UTC'
+const is24HourFormat = ref(true);
+const currentTimeZone = ref('local');
 const clockTimer = ref(null);
-const currentDj = ref('None'); // This might not be displayed directly anymore
-const currentlyShowing = ref(null); // { id, name, type ('cycle' or 'schedule'), progress (0-100), ... }
+const currentDj = ref('None');
+const currentlyShowing = ref(null);
 const selectedItem = ref(null); 
-const activeDrawerTab = ref(null); // Still useful for potential future drawers
+const activeDrawerTab = ref(null);
+
+// --- Define Missing Refs --- 
+const isCycleLocked = ref(false);
+const isScheduleLocked = ref(false);
+const drawerTabs = ref([
+  { id: 'Cycles', label: 'Cycles', icon: 'fa-solid fa-sync', title: 'Manage Cycle Order' },
+  { id: 'EditAdd', label: 'Edit/Add', icon: 'fa-solid fa-plus', title: 'Add/Edit Items' },
+  { id: 'Schedule', label: 'Schedule', icon: 'fa-solid fa-calendar-alt', title: 'View Full Schedule' },
+  { id: 'Files', label: 'Files', icon: 'fa-solid fa-folder', title: 'Browse Files' },
+  { id: 'Settings', label: 'Settings', icon: 'fa-solid fa-cog', title: 'App Settings' }
+]);
+const notifications = ref([]);
+// --- End Define Missing Refs ---
 
 const cycleItems = reactive([]);
 const galleryItems = reactive([]);
-const scheduleItems = reactive([]);
+const scheduleItems = ref([
+  {
+    id: 1,
+    title: 'Morning Show',
+    start: '09:00',
+    end: '12:00',
+    days: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'],
+    description: 'Daily morning show with news and music.'
+  },
+  {
+    id: 2,
+    title: 'Afternoon Mix',
+    start: '13:00',
+    end: '16:00',
+    days: ['Monday', 'Wednesday', 'Friday'],
+    description: 'Afternoon music mix with listener requests.'
+  }
+]);
 const artists = reactive([]);
 const loading = reactive({ 
   cycle: false, gallery: false, schedule: false, artists: false,
@@ -595,14 +690,14 @@ const errors = reactive({
 });
 const galleryFilter = ref(null); 
 
-// New state for explicit filters (DECLARE HERE)
+// New state for explicit filters
 const gallerySearchTerm = ref('');
-const gallerySelectedArtist = ref(null); // null means 'All Artists'
+const gallerySelectedArtist = ref(null);
 
 // Add state to track the current cycle index and item start time
 const currentCycleIndex = ref(0);
-const currentItemStartTime = ref(null); // Date object
-const defaultCycleDuration = ref(5); // Default duration in seconds
+const currentItemStartTime = ref(null);
+const defaultCycleDuration = ref(5);
 const currentItem = ref(null);
 const currentItemProgress = ref(0);
 const currentTimer = ref(null);
@@ -628,7 +723,7 @@ const newEvent = reactive({ time: '', name: '', type: 'dj_set', duration: null, 
 // const saveCycleStatus = ref("");
 // const saveNamedCycleStatus = ref("");
 
-const newCycleGroupName = ref(''); // For saving named cycles
+const newCycleGroupName = ref('');
 // const loadingSaveNamedCycle = ref(false);
 
 // State for section collapse/expand
@@ -638,11 +733,26 @@ const sectionStates = reactive({
   schedule: { collapsed: false },
 });
 
+// Add settings state
+const settings = reactive({
+  theme: 'system',
+  autoSave: true,
+  notifications: true,
+  compactMode: false
+});
+
+// Add settings methods
+const updateSetting = (key, value) => {
+  settings[key] = value;
+  console.log(`Updated setting: ${key} = ${value}`);
+  // TODO: Save settings to storage
+};
+
 // --- Computed --- 
 const timeUrgencyClass = computed(() => {
   const now = new Date();
   let nextEventTime = null;
-  for (const event of scheduleItems) {
+  for (const event of scheduleItems.value) {
       try {
         const [hours, minutes] = event.time.split(':').map(Number);
         const eventDate = new Date();
@@ -661,10 +771,10 @@ const timeUrgencyClass = computed(() => {
 });
 
 const filteredGalleryItems = computed(() => {
-  let items = [...galleryItems]; // Work with a copy
+  let items = [...galleryItems];
 
   // 1. Apply explicit artist filter
-  if (gallerySelectedArtist.value !== null) { // Check for null explicitly
+  if (gallerySelectedArtist.value !== null) {
     items = items.filter(logo => logo.artist_id === gallerySelectedArtist.value);
   }
 
@@ -677,13 +787,11 @@ const filteredGalleryItems = computed(() => {
     );
   }
   
-  // 3. Apply schedule-based filter if active (Example - adapt as needed)
-  // This logic might need refinement based on how galleryFilter is set
+  // 3. Apply schedule-based filter if active
   if (galleryFilter.value) {
      // Assuming galleryFilter.value holds a DJ name/ID to link via logo.linked_djs
      // items = items.filter(logo => logo.linked_djs?.includes(galleryFilter.value));
   }
-
 
   return items;
 });
@@ -697,21 +805,19 @@ const getArtistName = (artistId) => {
 
 function formatTime(date) {
   if (!(date instanceof Date)) {
-    return '--:--'; // Return placeholder if date is invalid
+    return '--:--';
   }
   const options = {
     hour: 'numeric',
     minute: '2-digit',
     second: '2-digit',
     hour12: !is24HourFormat.value,
-    timeZone: currentTimeZone.value === 'UTC' ? 'UTC' : undefined // Use undefined for local
+    timeZone: currentTimeZone.value === 'UTC' ? 'UTC' : undefined
   };
   try {
-    // Force locale to something neutral that respects options if browser default is weird
     return date.toLocaleTimeString('en-CA', options);
   } catch (e) {
     console.error("Error formatting time:", e);
-    // Fallback to basic formatting if toLocaleTimeString fails
     const hours = (currentTimeZone.value === 'UTC' ? date.getUTCHours() : date.getHours()).toString().padStart(2, '0');
     const minutes = (currentTimeZone.value === 'UTC' ? date.getUTCMinutes() : date.getMinutes()).toString().padStart(2, '0');
     const seconds = (currentTimeZone.value === 'UTC' ? date.getUTCSeconds() : date.getSeconds()).toString().padStart(2, '0');
@@ -720,35 +826,43 @@ function formatTime(date) {
 }
 
 function formatScheduleTime(timeStr) {
-    // Convert HH:MM to locale time format (e.g., 10:00 PM)
     try {
         const [hours, minutes] = timeStr.split(':').map(Number);
         const date = new Date();
         date.setHours(hours, minutes, 0, 0);
-        return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }); // Adjust locale/options as needed
+        return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
     } catch (e) {
-        return timeStr; // Fallback
+        return timeStr;
     }
 }
 
-// --- Notification System (Keep as is) --- //
+// --- Notification System (Keep as is) ---
+const allNotifications = ref([]);
 let notificationIdCounter = 0;
-function showNotification(message, type = 'info', duration = 4000) { /* ... */ }
-function closeNotification(id) { /* ... */ }
-function getNotificationIcon(type) { /* ... */ }
+function showNotification(message, type = 'info', duration = 4000) { 
+    const id = notificationIdCounter++;
+    allNotifications.value.push({ id, message, type });
+    setTimeout(() => {
+        closeNotification(id);
+    }, duration);
+}
+function closeNotification(id) { 
+    allNotifications.value = allNotifications.value.filter(n => n.id !== id);
+}
+const currentNotifications = computed(() => allNotifications.value);
 
-// --- Data Fetching (Keep specific fetch functions defined) --- //
+// --- Data Fetching (Keep specific fetch functions defined) ---
 async function fetchGallery() { /* ... */ }
 async function fetchArtists() { /* ... */ }
 async function fetchDefaultCycle() { /* ... */ }
 async function fetchSchedule() { /* ... */ }
-async function fetchData() { /* ... */ } // Combined fetch for initial load
+async function fetchData() { /* ... */ }
 
 
-// --- State Update Logic Helpers (NEW) --- //
+// --- State Update Logic Helpers (NEW) ---
 
 function findActiveScheduleItem(now) {
-  return scheduleItems.find(item => {
+  return scheduleItems.value.find(item => {
     try {
       const startTime = new Date(item.start_time);
       const endTime = new Date(startTime.getTime() + item.duration * 60 * 1000); 
@@ -818,8 +932,7 @@ function startCycleProgressCalculation(durationMs) {
   }, intervalTime);
 }
 
-// Refactored Main state update function (NEW)
-function updateCurrentState_New() { // Temporary name
+function updateCurrentState_New() {
   clearTimeout(currentTimer.value); 
   clearInterval(cycleProgressInterval); 
 
@@ -843,7 +956,7 @@ function updateCurrentState_New() { // Temporary name
     } else if (currentItem.value.type === 'cycle') {
       startCycleProgressCalculation(displayInfo.durationMs);
     }
-    currentlyShowing.value = { ...currentItem.value }; // Update template ref
+    currentlyShowing.value = { ...currentItem.value };
     console.log(`Showing: ${currentItem.value.name} (${currentItem.value.type}), next check in ${nextCheckDelayMs}ms`);
   } else {
     currentItem.value = null;
@@ -854,26 +967,25 @@ function updateCurrentState_New() { // Temporary name
   }
 
   const clampedDelay = Math.max(100, nextCheckDelayMs); 
-  currentTimer.value = setTimeout(updateCurrentState, clampedDelay); // Use final name here
+  currentTimer.value = setTimeout(updateCurrentState, clampedDelay);
 }
 
-// --- Existing updateCurrentState (TO BE COMMENTED OUT) --- //
+// --- Existing updateCurrentState (TO BE COMMENTED OUT) ---
 /*
 function updateCurrentState() {
   clearTimeout(currentTimer.value);
   currentItemProgress.value = 0;
-        // Optionally clear status after a delay
         setTimeout(() => { saveCycleStatus.value = ""; }, 3000);
     }
 }
 */
 
-// --- Utility Functions (Keep as is) --- //
+// --- Utility Functions (Keep as is) ---
 function toggleTimeFormat() { /* ... */ }
 function toggleTimeZone() { /* ... */ }
 function getGalleryItemStatusClass(logo) { /* ... */ }
 
-// --- Gridstack Methods (Restore Implementations) --- //
+// --- Gridstack Methods (Restore Implementations) ---
 function initializeGrid() {
   grid.value = GridStack.init({
     float: false, 
@@ -896,12 +1008,11 @@ function initializeGrid() {
 
 function saveLayout() {
   if (!grid.value) return;
-  // Save only the layout structure (x, y, w, h, id), not content
   const layout = grid.value.save(false); 
   console.log('Saving layout:', layout);
   try {
     localStorage.setItem(gridLayoutKey, JSON.stringify(layout));
-    showNotification("Layout saved.", "info", 2000); // Brief feedback
+    showNotification("Layout saved.", "info", 2000);
   } catch (e) {
     console.error("Failed to save layout to localStorage:", e);
     showNotification("Failed to save layout.", "error");
@@ -918,42 +1029,34 @@ function loadLayout() {
       grid.value.load(layoutData);
     } else {
        console.log('No saved layout found, using default HTML layout.');
-       // Gridstack uses attributes from HTML as default if nothing loaded
     }
   } catch (e) {
     console.error("Failed to load layout from localStorage:", e);
     showNotification("Failed to load saved layout.", "error");
-    // Don't reset here, let it use HTML default
   }
 }
 
 function resetLayout() {
   if (!grid.value) return;
   console.log('Resetting layout to default');
-  // Clear saved layout
   try { localStorage.removeItem(gridLayoutKey); } catch (e) {}
   
-  // Define the default layout explicitly
   const defaultLayout = [
       { id: 'cycle', x: 0, y: 0, w: 8, h: 3 },
       { id: 'gallery', x: 0, y: 3, w: 8, h: 9 },
       { id: 'schedule', x: 8, y: 0, w: 4, h: 12 },
-      // Add defaults for any other grid items if they exist
   ];
-  // Programmatically update grid items to match default
-  grid.value.batchUpdate(); // Improve performance for multiple updates
-  grid.value.removeAll(false); // Remove existing widgets from layout without destroying DOM nodes
-  // Re-add widgets with default attributes
+  grid.value.batchUpdate();
+  grid.value.removeAll(false);
   defaultLayout.forEach(item => {
       const element = document.querySelector(`.grid-stack-item[gs-id='${item.id}']`);
       if (element) {
           grid.value.addWidget(element, item);
       }
   });
-  grid.value.commit(); // Apply updates
+  grid.value.commit();
 
   showNotification("Layout reset to default.", "info");
-  // No need to save default layout to localStorage, let it load from HTML next time
 }
 
 function toggleLayoutLock(lockState) {
@@ -961,7 +1064,6 @@ function toggleLayoutLock(lockState) {
     const shouldLock = typeof lockState === 'boolean' ? lockState : !isLayoutLocked.value;
     isLayoutLocked.value = shouldLock;
 
-    // Gridstack's enable/disable should handle drag/resize together
     if (isLayoutLocked.value) {
         grid.value.disable(); 
         console.log("Layout LOCKED");
@@ -970,10 +1072,10 @@ function toggleLayoutLock(lockState) {
         console.log("Layout UNLOCKED");
     }
     
-    // Explicitly update resizable option (might be redundant but safer)
     grid.value.resizable('.grid-stack-item', !isLayoutLocked.value);
 
     try {
+      const appWindow = getCurrent();
       appWindow.menuItems()['toggle-layout-lock'].then(item => {
           item?.setChecked(isLayoutLocked.value);
       });
@@ -981,15 +1083,14 @@ function toggleLayoutLock(lockState) {
 }
 
 
-// --- Menu Event Listeners (Restore Implementation using correct IDs) --- //
+// --- Menu Event Listeners (Restore Implementation using correct IDs) ---
 async function setupMenuListeners() {
-    // Initial sync of lock state with menu 
+    const appWindow = getCurrent();
     try {
         const item = await appWindow.menuItems()['toggle-layout-lock'];
         if (item) {
             const checked = await item.isChecked();
             isLayoutLocked.value = checked;
-            // Apply initial lock state to grid if already initialized
             if (grid.value) {
                 if (isLayoutLocked.value) grid.value.disable();
                 else grid.value.enable();
@@ -997,10 +1098,9 @@ async function setupMenuListeners() {
         }
     } catch (e) { console.error("Failed to get initial menu check state:", e); }
 
-    // Listen for clicks
-    await listen('tauri://menu', (event) => {
+    const unlisten = await appWindow.onMenuClicked(async (event) => {
         console.log('Menu item clicked:', event.payload);
-        const menuItemId = event.payload?.id || event.payload; // Adapt based on payload structure
+        const menuItemId = event.payload; 
         
         switch (menuItemId) {
             case 'save-layout':
@@ -1010,59 +1110,66 @@ async function setupMenuListeners() {
                 resetLayout();
                 break;
             case 'toggle-layout-lock':
-                 // Checkbox events might not include ID in payload, check state directly
-                 appWindow.menuItems()['toggle-layout-lock'].then(item => {
-                    item?.isChecked().then(checked => {
-                       // IMPORTANT: The checked state *already reflects* the click
-                       // So we call our function with this new state
-                       toggleLayoutLock(checked); 
-                    });
-                 }).catch(e => console.error("Failed to handle toggle-layout-lock:", e));
+                 try {
+                     const item = await appWindow.menuItems()['toggle-layout-lock'];
+                     if (item) {
+                         const checked = await item.isChecked();
+                         toggleLayoutLock(checked); 
+                     }
+                 } catch(e) { console.error("Failed to handle toggle-layout-lock:", e); }
                 break;
-            // Add other menu item cases if needed
-            // case 'learn-more': ... break;
         }
     });
 }
 
-// --- Drawer Toggle (Keep as is) --- //
-function toggleDrawer(tabName) { /* ... */ }
+// --- Drawer Toggle (Keep as is) ---
+function toggleDrawer(tabId) {
+  console.log('Toggling drawer tab:', tabId);
+  if (activeDrawerTab.value === tabId) {
+    // If clicking the active tab, close it
+    activeDrawerTab.value = null;
+  } else {
+    // Otherwise, switch to the clicked tab
+    activeDrawerTab.value = tabId;
+  }
+}
 
-// --- File Picker (Keep as is) --- //
+// --- File Picker (Keep as is) ---
 async function selectLogoFile() { /* ... */ }
 
-// --- Expanded Item Logic (Keep as is) --- //
+// --- Expanded Item Logic (Keep as is) ---
 function toggleExpand(item, type) { /* ... */ }
 async function saveExpandedItemDetails() { /* ... */ }
 
-// --- Cycle Management (Keep as is) --- //
+// --- Cycle Management (Keep as is) ---
 function removeCycleItem(itemId) { /* ... */ }
 async function handleSaveCycleOrder() { /* ... */ }
 async function handleSaveNamedCycle() { /* ... (Implementation using notifications) */ }
 function addToCycle(logoItemToAdd) { /* ... */ }
 
-// --- Add/Edit Handlers (Keep UNCHANGED for now) --- //
+// --- Add/Edit Handlers (Keep UNCHANGED for now) ---
 async function handleAddLogo() { /* ... uses old fetchData ... */ }
 async function handleAddArtist() { /* ... uses old fetchData ... */ }
 async function handleAddNewScheduleEvent() { /* ... uses old fetchData ... */ }
 
-// --- Lifecycle & Timer (Keep as is, calls new fetchData) --- //
+// --- Lifecycle & Timer (Keep as is, calls new fetchData) ---
 onMounted(async () => {
+  console.log('[NowPlaying.vue] Component is mounting...');
   clockTimer.value = setInterval(() => { currentTime.value = new Date(); }, 1000);
   initializeGrid();
-  await fetchData(); // Calls the new combined fetch
-  // The fetchData function should call the *final* updateCurrentState
+  await fetchData();
   setupMenuListeners();
 });
 
 onUnmounted(() => {
+  console.log('[NowPlaying.vue] Component is unmounting...');
   clearInterval(clockTimer.value);
   clearTimeout(currentTimer.value);
-  clearInterval(cycleProgressInterval); // Ensure progress interval is cleared
+  clearInterval(cycleProgressInterval);
   if (grid.value) { grid.value.destroy(false); }
+  if (unlisten) unlisten();
 });
 
-// RENAME Function
 function updateCurrentState() {
   updateCurrentState_New();
 }
@@ -1071,9 +1178,6 @@ function updateCurrentState() {
 function toggleCollapse(sectionId) {
   if (sectionStates[sectionId]) {
     sectionStates[sectionId].collapsed = !sectionStates[sectionId].collapsed;
-    // Optional: Adjust grid item height using API if needed, 
-    // but CSS approach with v-show is simpler initially.
-    // nextTick(() => { adjustGridItemHeight(sectionId); });
   }
 }
 
@@ -1081,7 +1185,6 @@ function toggleCollapse(sectionId) {
 function expandSection(sectionId) {
   console.log(`Expand section requested for: ${sectionId} (Not Implemented)`);
   showNotification(`Maximize functionality for ${sectionId} section is not yet implemented.`, 'info');
-  // TODO: Implement logic to resize grid item, potentially hide others?
 }
 
 // Placeholder/Example functions for existing controls shown in template
@@ -1094,13 +1197,11 @@ function refreshSchedule() { console.log("Refresh Schedule"); }
 // --- Search Activation/Deactivation ---
 const activateSearch = async () => {
   isSearchActive.value = true;
-  await nextTick(); // Wait for input to become visible
+  await nextTick();
   searchInputRef.value?.focus();
 };
 
 const deactivateSearch = () => {
-  // Deactivate only if the input is empty after losing focus
-  // Use a small timeout to allow clicking potential clear buttons if added later
   setTimeout(() => {
       if (!gallerySearchTerm.value) {
          isSearchActive.value = false;
@@ -1111,8 +1212,146 @@ const deactivateSearch = () => {
 const cancelSearch = () => {
    gallerySearchTerm.value = '';
    isSearchActive.value = false;
-   // Optionally blur the input if needed
    searchInputRef.value?.blur();
+};
+
+// --- Drop Handler for Now Showing --- 
+const handleDropOnNowPlaying = async (event) => {
+  event.preventDefault();
+  console.log('[NowPlaying.vue] Drop event received.');
+  try {
+    const dataString = event.dataTransfer.getData('application/json');
+    console.log('[NowPlaying.vue] Data String Received:', dataString);
+    if (!dataString) {
+      console.warn('[NowPlaying.vue] No data transferred in drop event.');
+      return;
+    }
+    
+    const droppedData = JSON.parse(dataString);
+    console.log('[NowPlaying.vue] Parsed Dropped data:', droppedData);
+
+    if (droppedData.type === 'logo' && droppedData.id && droppedData.name && droppedData.filePath) {
+      console.log('[NowPlaying.vue] Logo dropped with file path:', droppedData.filePath);
+      
+      let logoFilePath = droppedData.filePath;
+      
+      currentlyShowing.value = {
+        id: droppedData.id,
+        name: droppedData.name,
+        type: 'logo', 
+        progress: 100, 
+        icon: 'fa-solid fa-image',
+        filePath: logoFilePath 
+      };
+      console.log('[NowPlaying.vue] Updated Now Showing state:', currentlyShowing.value);
+
+      await triggerNdiUpdate(currentlyShowing.value);
+
+    } else {
+      console.warn('[NowPlaying.vue] Dropped data missing required fields (type, id, name, filePath) or not a logo:', droppedData);
+    }
+  } catch (error) {
+    console.error('[NowPlaying.vue] Error handling drop on Now Playing:', error);
+  }
+};
+
+// --- NDI Trigger --- 
+const triggerNdiUpdate = async (itemToShow) => {
+  if (!itemToShow || !itemToShow.filePath) {
+    console.warn('Cannot trigger NDI: Item or file path is missing.');
+    return;
+  }
+  
+  console.log(`Triggering NDI output for: ${itemToShow.name} (Path: ${itemToShow.filePath})`);
+  try {
+    await invoke('start_ndi_output', { logoPath: itemToShow.filePath });
+    console.log('NDI output command invoked successfully.');
+  } catch (error) {
+    console.error('Failed to invoke NDI output command:', error);
+  }
+};
+
+// --- Drawer Toggle Helpers ---
+const getDrawerTabInfo = (tabId) => {
+  return drawerTabs.value.find(tab => tab.id === tabId);
+};
+const getDrawerTabIcon = (tabId) => {
+  return getDrawerTabInfo(tabId)?.icon || 'fa-solid fa-question-circle';
+};
+const getDrawerTabLabel = (tabId) => {
+  return getDrawerTabInfo(tabId)?.label || 'Unknown Tab';
+};
+
+const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+const timeSlots = Array.from({ length: 24 }, (_, i) => `${String(i).padStart(2, '0')}:00`);
+
+// Add schedule methods
+const addScheduleItem = () => {
+  const newItem = {
+    id: Date.now(),
+    title: 'New Show',
+    start: '12:00',
+    end: '13:00',
+    days: ['Monday'],
+    description: 'New show description'
+  };
+  scheduleItems.value.push(newItem);
+};
+
+const removeScheduleItem = (id) => {
+  scheduleItems.value = scheduleItems.value.filter(item => item.id !== id);
+};
+
+// Add edit/add state
+const editForm = reactive({
+  title: '',
+  artist: '',
+  duration: '',
+  file: null,
+  tags: [],
+  notes: ''
+});
+
+const availableTags = ref([
+  'Rock', 'Pop', 'Electronic', 'Hip Hop', 'Jazz', 'Classical',
+  'Metal', 'Folk', 'Blues', 'Country', 'R&B', 'Reggae'
+]);
+
+// Add edit/add methods
+const handleFileSelect = async () => {
+  try {
+    const selected = await open({
+      multiple: false,
+      filters: [{
+        name: 'Media',
+        extensions: ['mp4', 'mov', 'avi', 'mkv']
+      }]
+    });
+    if (selected) {
+      editForm.file = selected;
+    }
+  } catch (error) {
+    console.error('Error selecting file:', error);
+  }
+};
+
+const addTag = (tag) => {
+  if (!editForm.tags.includes(tag)) {
+    editForm.tags.push(tag);
+  }
+};
+
+const removeTag = (tag) => {
+  editForm.tags = editForm.tags.filter(t => t !== tag);
+};
+
+const handleSubmit = () => {
+  console.log('Submitting form:', editForm);
+  // TODO: Implement form submission
+  // Reset form
+  Object.keys(editForm).forEach(key => {
+    editForm[key] = Array.isArray(editForm[key]) ? [] : '';
+  });
 };
 
 </script>
@@ -1132,7 +1371,7 @@ const cancelSearch = () => {
   background-color: var(--background-color, #121212); 
   color: var(--text-color, #e0e0e0); 
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  overflow: hidden; /* Prevent body scroll, grid handles internal */
+  overflow: hidden;
 }
 
 .top-bar {
@@ -1142,12 +1381,12 @@ const cancelSearch = () => {
   padding: 10px 20px;
   background-color: var(--secondary-color, #1e1e1e);
   border-bottom: 1px solid var(--border-color, #333);
-  flex-shrink: 0; /* Prevent shrinking */
+  flex-shrink: 0;
 }
 
 .main-content-grid { 
   flex-grow: 1;
-  padding: 10px; /* Margin around the grid */
+  padding: 10px;
   margin: 0; 
 }
 
@@ -1158,13 +1397,13 @@ const cancelSearch = () => {
   padding: 10px 20px;
   background-color: var(--secondary-color, #1e1e1e);
   border-top: 1px solid var(--border-color, #333);
-  flex-shrink: 0; /* Prevent shrinking */
-  margin-top: auto; /* Push to bottom if content doesn't fill height */
+  flex-shrink: 0;
+  margin-top: auto;
 }
 
 /* --- Gridstack Integration --- */
 .grid-stack {
-    /* background: #404040; */ /* Optional background for grid area */
+    /* background: #404040; */
 }
 
 .grid-stack-item > .grid-stack-item-content {
@@ -1185,16 +1424,16 @@ const cancelSearch = () => {
 
 /* Adjust padding for section content within grid items */
 .grid-stack-item-content .section-header {
-     padding: 10px 15px; /* Padding for header */
-     margin-bottom: 0; /* Remove default margin if any */
-     border-bottom: 1px solid var(--border-color, #333); /* Separator */
+     padding: 10px 15px;
+     margin-bottom: 0;
+     border-bottom: 1px solid var(--border-color, #333);
 }
 .grid-stack-item-content .section-body,
 .grid-stack-item-content .item-container, 
 .grid-stack-item-content .schedule-list-container {
-    padding: 15px; /* Padding for main content */
-    flex-grow: 1; /* Allow body to fill space */
-    overflow-y: auto; /* Allow internal scroll */
+    padding: 15px;
+    flex-grow: 1;
+    overflow-y: auto;
 }
 
 
@@ -1202,7 +1441,7 @@ const cancelSearch = () => {
 .now-showing {
   flex: 1;
   margin-right: 20px;
-  min-width: 0; /* Prevent flex item from overflowing */
+  min-width: 0;
 }
 
 .now-showing-title {
@@ -1217,6 +1456,8 @@ const cancelSearch = () => {
   display: flex;
   flex-direction: column;
   gap: 5px;
+  border: 2px dashed transparent;
+  transition: border-color 0.2s ease, background-color 0.2s ease;
 }
 
 .preview-content {
@@ -1284,7 +1525,7 @@ const cancelSearch = () => {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding-left: 5px; /* Adjust if needed for handle */
+    padding-left: 5px;
     position: relative;
     /* Prevent selection on the whole header potentially */
     /* user-select: none; */ 
@@ -1323,9 +1564,9 @@ const cancelSearch = () => {
     padding: 12px;
     cursor: pointer;
     transition: all var(--transition-speed);
-    border: 1px solid transparent; /* Start transparent */
+    border: 1px solid transparent;
     display: flex;
-    flex-direction: column; /* Stack content and progress */
+    flex-direction: column;
 }
 .item-box:hover {
     background-color: rgba(255, 255, 255, 0.1);
@@ -1336,29 +1577,29 @@ const cancelSearch = () => {
     box-shadow: 0 0 0 1px var(--primary-color);
 }
 .item-box.selected {
-    background-color: rgba(33, 150, 243, 0.15); /* Slightly more prominent selection */
+    background-color: rgba(33, 150, 243, 0.15);
     border-color: rgba(33, 150, 243, 0.5);
 }
-.item-content { flex-grow: 1; /* Allow content to push progress bar down */ }
+.item-content { flex-grow: 1; }
 .item-header { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; }
 .item-name { font-weight: 500; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .item-meta { display: flex; gap: 12px; font-size: 12px; opacity: 0.7; }
 .lock-icon { color: var(--warning-color); }
-.item-box .progress-bar-container { margin-top: 8px; /* Space above progress bar */ }
+.item-box .progress-bar-container { margin-top: 8px; }
 
 /* Cycle Section Specific */
-.cycle-section .item-container { padding: 5px 15px 15px 15px; /* Adjust padding */ }
-.horizontal-scroll { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 8px; min-height: 80px; /* Ensure some height */ }
+.cycle-section .item-container { padding: 5px 15px 15px 15px; }
+.horizontal-scroll { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 8px; min-height: 80px; }
 .cycle-item { min-width: 180px; flex-shrink: 0; }
 
 /* Gallery Section Specific */
-.gallery-section .section-body { padding: 0; /* Let container handle padding */ }
-.gallery-grid-container { /* Grid layout defined previously */ }
-.gallery-item-content { /* Handled by grid-stack-item-content */ }
-.gallery-item { /* Item box styles apply */ height: 100px; /* Fixed height */ }
+.gallery-section .section-body { padding: 0; }
+.gallery-grid-container { }
+.gallery-item-content { }
+.gallery-item { height: 100px; }
 
 /* Schedule Section Specific */
-.schedule-list-container { /* Base padding applied by grid context */ }
+.schedule-list-container { }
 .schedule-list { list-style: none; padding: 0; margin: 0; }
 .schedule-list li { display: flex; gap: 10px; padding: 8px 5px; border-bottom: 1px solid var(--border-color); cursor: pointer; transition: background-color var(--transition-speed); }
 .schedule-list li:hover { background-color: rgba(255, 255, 255, 0.05); }
@@ -1367,33 +1608,205 @@ const cancelSearch = () => {
 .schedule-list .name { flex-grow: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* State Indicators */
-.loading-state, .error-state, .empty-state { /* Styles defined previously */ }
+.loading-state, .error-state, .empty-state { }
 
 /* Item Details Styles */
-.item-details { /* Base styles defined previously */ }
-.gallery-details { /* Gallery specific details styles defined previously */ }
+.item-details { }
+.gallery-details { }
 
 /* Bottom Bar and Drawer Styles */
-/* All styles for .bottom-bar, .tab-group, .tab-button, .layout-controls, .layout-button */
-/* .contextual-drawer-panel, .drawer-header, .drawer-title, .close-drawer-btn, .drawer-content */
-/* .tab-header, .tab-body, .cycle-config-list, .cycle-config-item, .drag-handle, .item-info */
-/* .remove-btn, .tab-footer, .footer-section, .footer-divider, .save-named-cycle, .save-named-group */
-/* .status-message, .action-buttons, .ghost (draggable placeholder) */
-/* KEEP ALL THESE STYLES */
+.bottom-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 20px;
+  background-color: var(--secondary-color);
+  border-top: 1px solid var(--border-color);
+}
+
+.tab-group {
+  display: flex;
+  gap: 8px;
+}
+
+.tab-button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--button-bg);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  color: var(--text-color);
+  cursor: pointer;
+  transition: all var(--transition-speed);
+}
+
+.tab-button:hover {
+  background: var(--button-hover-bg);
+}
+
+.tab-button.active {
+  background: var(--primary-color);
+  color: white;
+  border-color: var(--primary-color);
+}
+
+.contextual-drawer-panel {
+  position: fixed;
+  bottom: 60px;
+  left: 0;
+  right: 0;
+  background: var(--secondary-color);
+  border-top: 1px solid var(--border-color);
+  z-index: 100;
+  height: 300px;
+  display: flex;
+  flex-direction: column;
+}
+
+.drawer-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 20px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.drawer-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.drawer-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+}
+
+.close-drawer-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-color);
+  cursor: pointer;
+  padding: 8px;
+  border-radius: var(--border-radius);
+}
+
+.close-drawer-btn:hover {
+  background: var(--button-hover-bg);
+}
+
+.drawer-tab-content {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+
+  .tab-header {
+    padding: 1rem;
+    background: var(--surface-2);
+    border-bottom: 1px solid var(--surface-3);
+
+    h5 {
+      margin: 0 0 0.5rem;
+      font-size: 1rem;
+      color: var(--text-1);
+    }
+
+    p {
+      margin: 0;
+      font-size: 0.875rem;
+      color: var(--text-2);
+    }
+  }
+
+  .tab-body {
+    flex: 1;
+    overflow: hidden;
+    background: var(--surface-1);
+    position: relative;
+
+    &.placeholder-content {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 1rem;
+      color: var(--text-2);
+      font-size: 0.875rem;
+
+      svg {
+        font-size: 2rem;
+        opacity: 0.5;
+      }
+    }
+  }
+}
 
 /* Add/Edit Form Styles */
-/* Keep styles for .add-edit-forms, .add-form, .form-group, inputs, selects, buttons, .file-input-group, .file-picker-btn */
+.add-edit-forms {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.add-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 20px;
+  background: var(--background-color);
+  border-radius: var(--border-radius);
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.form-group label {
+  font-weight: 500;
+}
+
+.form-group input,
+.form-group select {
+  padding: 8px;
+  background: var(--button-bg);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  color: var(--text-color);
+}
+
+.file-input-group {
+  display: flex;
+  gap: 8px;
+}
+
+.file-picker-btn {
+  padding: 8px;
+  background: var(--button-bg);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  color: var(--text-color);
+  cursor: pointer;
+}
+
+.file-picker-btn:hover {
+  background: var(--button-hover-bg);
+}
 
 /* Gallery Filter Styles */
 .filter-select,
-.filter-input { /* Base style for original input, keep if needed elsewhere */
-  padding: 4px 8px;
+.filter-input { padding: 4px 8px;
   border-radius: 4px;
   background-color: var(--background-color);
   border: 1px solid var(--border-color);
   color: var(--text-color);
   font-size: 13px;
-  height: 28px; /* Match control buttons */
+  height: 28px;
   box-sizing: border-box;
 }
 
@@ -1426,23 +1839,23 @@ const cancelSearch = () => {
   padding-right: 0;
   border-color: transparent;
   transition: width 0.3s ease, opacity 0.3s ease, padding 0.3s ease, border-color 0.3s ease;
-  overflow: hidden; /* Prevent text showing during transition */
+  overflow: hidden;
 }
 
 .search-container.active .search-filter-dynamic {
-  width: 150px; /* Adjust width as needed */
+  width: 150px;
   opacity: 1;
   padding-left: 8px;
   padding-right: 8px;
   border-color: var(--border-color);
-  margin-left: 5px; /* Space between button and input when active */
+  margin-left: 5px;
 }
 
 /* Ensure controls container adapts */
 .section-controls {
-    /* display: flex; */ /* Already set */
-    /* gap: 8px; */ /* Already set */
-    /* align-items: center; */ /* Ensure vertical alignment */
+    /* display: flex; */
+    /* gap: 8px; */
+    /* align-items: center; */
 }
 
 
@@ -1463,7 +1876,7 @@ const cancelSearch = () => {
     opacity: 0.3; 
     transition: opacity var(--transition-speed);
     position: relative; 
-    z-index: 2; /* Increased z-index from 1 to 2 */
+    z-index: 2;
     /* Prevent text selection on handle */
     user-select: none;
     -webkit-user-select: none;
@@ -1474,14 +1887,14 @@ const cancelSearch = () => {
 .drag-handle i {
   font-size: 13px;
   font-family: 'Font Awesome 6 Free', 'Font Awesome 6 Brands' !important;
-  font-weight: 900 !important; /* Solid icons */
+  font-weight: 900 !important;
   display: inline-block !important;
   font-style: normal !important;
   font-variant: normal !important;
   text-rendering: auto !important;
   -webkit-font-smoothing: antialiased !important;
-  line-height: 1; /* Ensure consistent line height */
-  vertical-align: middle; /* Align icon vertically */
+  line-height: 1;
+  vertical-align: middle;
 }
 
 /* Gridstack Resize Handle Styling - Revised */
@@ -1491,8 +1904,8 @@ const cancelSearch = () => {
     background: transparent;
     border: none;
     position: absolute;
-    z-index: 20; /* Above drag handle and content */
-    width: 16px; /* Slightly larger area for easier hover */
+    z-index: 20;
+    width: 16px;
     height: 16px;
 }
 
@@ -1511,8 +1924,8 @@ const cancelSearch = () => {
 .grid-stack-item > .ui-resizable-handle::after {
     content: '';
     position: absolute;
-    background-color: var(--text-color-secondary, #aaa); /* Grey color */
-    opacity: 0; /* Invisible initially */
+    background-color: var(--text-color-secondary, #aaa);
+    opacity: 0;
     transition: opacity 0.15s ease-in-out;
     border-radius: 1px;
 }
@@ -1523,20 +1936,20 @@ const cancelSearch = () => {
     opacity: 0.9;
 }
 
-/* Edge Line Styles (using ::after) */
+/* Edge Line Styles (using ::after) - Modified for 100% length */
 .grid-stack-item > .ui-resizable-e::after, 
 .grid-stack-item > .ui-resizable-w::after {
-    top: 25%; height: 50%; width: 3px; 
+    top: 0; height: 100%; width: 3px;
 }
-.grid-stack-item > .ui-resizable-e::after { right: 4px; }
-.grid-stack-item > .ui-resizable-w::after { left: 4px; }
+.grid-stack-item > .ui-resizable-e::after { right: 1px; }
+.grid-stack-item > .ui-resizable-w::after { left: 1px; }
 
 .grid-stack-item > .ui-resizable-s::after, 
 .grid-stack-item > .ui-resizable-n::after {
-    left: 25%; width: 50%; height: 3px; 
+    left: 0; width: 100%; height: 3px;
 }
 .grid-stack-item > .ui-resizable-s::after { bottom: 0; }
-.grid-stack-item > .ui-resizable-n::after { top: 4px; }
+.grid-stack-item > .ui-resizable-n::after { top: 1px; }
 
 /* Corner Line Styles (using ::before and ::after) */
 /* Vertical part */
@@ -1622,4 +2035,370 @@ const cancelSearch = () => {
 
 /* v-show handles hiding the body, no extra CSS needed for that */
 
+.now-showing-preview:hover {
+   /* Maybe a subtle hover effect */
+   /* background-color: rgba(255, 255, 255, 0.03); */
+}
+
+/* Consider adding a class dynamically on dragover */
+.now-showing-preview.drag-over-active {
+  border-color: var(--primary-color);
+  background-color: rgba(33, 150, 243, 0.1);
+}
+
+.settings-form {
+  padding: 1rem;
+  overflow-y: auto;
+  height: 100%;
+}
+
+.setting-group {
+  margin-bottom: 2rem;
+
+  h6 {
+    margin: 0 0 1rem;
+    font-size: 0.875rem;
+    color: var(--text-2);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+}
+
+.setting-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--surface-2);
+
+  &:last-child {
+    border-bottom: none;
+  }
+
+  label {
+    font-size: 0.875rem;
+    color: var(--text-1);
+  }
+
+  select {
+    padding: 0.5rem;
+    border-radius: 4px;
+    border: 1px solid var(--surface-3);
+    background: var(--surface-1);
+    color: var(--text-1);
+    font-size: 0.875rem;
+    min-width: 120px;
+
+    &:focus {
+      outline: none;
+      border-color: var(--brand);
+    }
+  }
+
+  input[type="checkbox"] {
+    width: 1.25rem;
+    height: 1.25rem;
+    border: 1px solid var(--surface-3);
+    border-radius: 4px;
+    background: var(--surface-1);
+    cursor: pointer;
+
+    &:checked {
+      background: var(--brand);
+      border-color: var(--brand);
+    }
+
+    &:focus {
+      outline: none;
+      border-color: var(--brand);
+    }
+  }
+}
+
+.schedule-grid {
+  display: flex;
+  height: 100%;
+  overflow-x: auto;
+  position: relative;
+  background: var(--surface-1);
+}
+
+.time-column,
+.day-column {
+  min-width: 120px;
+  border-right: 1px solid var(--surface-2);
+
+  &:last-child {
+    border-right: none;
+  }
+}
+
+.time-column {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  background: var(--surface-1);
+}
+
+.grid-header {
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 0.875rem;
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--surface-3);
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.time-slot {
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  color: var(--text-2);
+  border-bottom: 1px solid var(--surface-2);
+}
+
+.day-slots {
+  position: relative;
+  height: calc(100% - 40px);
+}
+
+.schedule-item {
+  position: absolute;
+  left: 0;
+  right: 0;
+  margin: 0 4px;
+  background: var(--brand-light);
+  border-radius: 4px;
+  padding: 8px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  &:hover {
+    background: var(--brand);
+    
+    .remove-btn {
+      opacity: 1;
+    }
+  }
+}
+
+.item-content {
+  height: 100%;
+  overflow: hidden;
+  position: relative;
+
+  h6 {
+    margin: 0 0 4px;
+    font-size: 0.75rem;
+    color: var(--text-1);
+  }
+
+  p {
+    margin: 0;
+    font-size: 0.625rem;
+    color: var(--text-2);
+  }
+}
+
+.remove-btn {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  background: none;
+  border: none;
+  color: var(--text-2);
+  padding: 2px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+
+  &:hover {
+    color: var(--text-1);
+  }
+}
+
+.add-schedule-btn {
+  margin-top: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: var(--brand);
+  border: none;
+  border-radius: 4px;
+  color: white;
+  font-size: 0.875rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: background 0.2s ease;
+
+  &:hover {
+    background: var(--brand-dark);
+  }
+}
+
+.edit-form {
+  padding: 1rem;
+  overflow-y: auto;
+  height: 100%;
+}
+
+.form-group {
+  margin-bottom: 1.5rem;
+
+  label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-size: 0.875rem;
+    color: var(--text-1);
+    font-weight: 500;
+  }
+
+  input[type="text"],
+  textarea {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid var(--surface-3);
+    border-radius: 4px;
+    background: var(--surface-1);
+    color: var(--text-1);
+    font-size: 0.875rem;
+
+    &:focus {
+      outline: none;
+      border-color: var(--brand);
+    }
+
+    &::placeholder {
+      color: var(--text-2);
+    }
+  }
+
+  textarea {
+    min-height: 100px;
+    resize: vertical;
+  }
+}
+
+.file-input {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+
+  button {
+    padding: 0.75rem 1rem;
+    background: var(--surface-2);
+    border: 1px solid var(--surface-3);
+    border-radius: 4px;
+    color: var(--text-1);
+    font-size: 0.875rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    transition: all 0.2s ease;
+
+    &:hover {
+      background: var(--surface-3);
+    }
+  }
+
+  .placeholder {
+    color: var(--text-2);
+    font-size: 0.875rem;
+  }
+}
+
+.tags-input {
+  .selected-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+  }
+
+  .tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.25rem 0.75rem;
+    background: var(--brand-light);
+    border-radius: 16px;
+    font-size: 0.75rem;
+    color: var(--text-1);
+
+    button {
+      background: none;
+      border: none;
+      padding: 2px;
+      color: var(--text-2);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+
+      &:hover {
+        color: var(--text-1);
+      }
+    }
+  }
+
+  .available-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+
+    button {
+      padding: 0.25rem 0.75rem;
+      background: var(--surface-2);
+      border: 1px solid var(--surface-3);
+      border-radius: 16px;
+      font-size: 0.75rem;
+      color: var(--text-1);
+      cursor: pointer;
+      transition: all 0.2s ease;
+
+      &:hover:not(:disabled) {
+        background: var(--surface-3);
+      }
+
+      &:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+    }
+  }
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 2rem;
+
+  .submit-btn {
+    padding: 0.75rem 1.5rem;
+    background: var(--brand);
+    border: none;
+    border-radius: 4px;
+    color: white;
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    transition: background 0.2s ease;
+
+    &:hover {
+      background: var(--brand-dark);
+    }
+  }
+}
 </style>
