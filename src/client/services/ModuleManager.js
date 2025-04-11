@@ -1,79 +1,6 @@
-import { ref, markRaw } from 'vue';
+import { ref } from 'vue';
 import { invoke } from '@tauri-apps/api/tauri';
-import NowPlaying from '../components/NowPlaying.vue';
-import Logos from '../components/Logos.vue';
-import OSC from '../components/OSC.vue';
-import NDI from '../components/NDI.vue';
-import Events from '../components/Events.vue';
-import Messaging from '../components/Messaging.vue';
-import Settings from '../components/Settings.vue';
-
-// Module registry with icons
-const moduleRegistry = [
-  {
-    id: 'nowPlaying',
-    name: 'Now Playing',
-    description: 'View and manage the current logo playlist',
-    enabled: true,
-    required: true,
-    component: markRaw(NowPlaying),
-    icon: 'fas fa-play-circle'
-  },
-  {
-    id: 'logos',
-    name: 'Logos',
-    description: 'Logo management',
-    enabled: true,
-    required: false,
-    component: markRaw(Logos),
-    icon: 'fas fa-image'
-  },
-  {
-    id: 'events',
-    name: 'Events',
-    description: 'Manage and sync events',
-    enabled: true,
-    required: true,
-    component: markRaw(Events),
-    icon: 'fas fa-calendar-alt'
-  },
-  {
-    id: 'messaging',
-    name: 'Messaging',
-    description: 'Communication tools',
-    enabled: true,
-    required: true,
-    component: markRaw(Messaging),
-    icon: 'fas fa-comments'
-  },
-  {
-    id: 'osc',
-    name: 'OSC',
-    description: 'OSC control',
-    enabled: true,
-    required: false,
-    component: markRaw(OSC),
-    icon: 'fas fa-network-wired'
-  },
-  {
-    id: 'ndi',
-    name: 'NDI',
-    description: 'NDI streaming',
-    enabled: true,
-    required: false,
-    component: markRaw(NDI),
-    icon: 'fas fa-broadcast-tower'
-  },
-  {
-    id: 'settings',
-    name: 'Settings',
-    description: 'Application settings',
-    enabled: true,
-    required: true,
-    component: markRaw(Settings),
-    icon: 'fas fa-cog'
-  }
-];
+import { moduleRegistry } from './moduleRegistry';
 
 // Create a reactive state
 const state = {
@@ -82,30 +9,47 @@ const state = {
   error: ref(null)
 };
 
-export function useModuleManager() {
+// Module manager functions
+const useModuleManager = () => {
   const init = async () => {
     state.loading.value = true;
     state.error.value = null;
     try {
-      // --- Revert to using window.__TAURI__.storage --- 
-      // Note: This API might be less robust or require different error handling
-      const savedStates = await window.__TAURI__.storage.get('moduleStates');
-      if (savedStates && typeof savedStates === 'object') { 
-        console.log('[ModuleManager] Loaded saved states via window.__TAURI__:', savedStates);
-        state.modules.value = state.modules.value.map(module => ({
-          ...module,
-          enabled: module.required ? true : (savedStates[module.id] ?? module.enabled)
-        }));
-      } else {
-        console.log('[ModuleManager] No valid saved module states found via window.__TAURI__.');
-      }
-      // No save() needed for this API
-    } catch (err) {
-      console.error('Failed to load module states via window.__TAURI__:', err);
-      state.error.value = err;
-    } finally {
+      // Any initialization logic here
+      state.loading.value = false;
+    } catch (error) {
+      state.error.value = error;
       state.loading.value = false;
     }
+  };
+
+  const getModuleComponent = async (moduleId) => {
+    console.log(`[ModuleManager] Attempting to get component for moduleId: ${moduleId}`);
+    const module = state.modules.value.find(m => m.id === moduleId);
+    if (!module) {
+      console.error(`[ModuleManager] Module not found for id: ${moduleId}`);
+      return null;
+    }
+    
+    console.log(`[ModuleManager] Found module definition:`, module);
+    try {
+      if (typeof module.component === 'function') {
+        console.log(`[ModuleManager] Dynamically importing component for: ${moduleId}`);
+        const component = await module.component();
+        console.log(`[ModuleManager] Successfully imported component for: ${moduleId}`, component);
+        return component;
+      }
+      console.log(`[ModuleManager] Returning pre-loaded component for: ${moduleId}`);
+      return module.component;
+    } catch (err) {
+      console.error(`[ModuleManager] Error loading component for moduleId ${moduleId}:`, err);
+      state.error.value = err;
+      return null;
+    }
+  };
+
+  const getModuleById = (moduleId) => {
+    return state.modules.value.find(m => m.id === moduleId) || null;
   };
 
   const saveModuleStates = async () => {
@@ -116,12 +60,10 @@ export function useModuleManager() {
         }
         return acc;
       }, {});
-      // --- Revert to using window.__TAURI__.storage --- 
       await window.__TAURI__.storage.set('moduleStates', states);
-      // No save() needed
-      console.log('[ModuleManager] Saved module states via window.__TAURI__:', states);
+      console.log('[ModuleManager] Saved module states:', states);
     } catch (err) {
-      console.error('Failed to save module states via window.__TAURI__:', err);
+      console.error('Failed to save module states:', err);
       state.error.value = err;
     }
   };
@@ -139,17 +81,16 @@ export function useModuleManager() {
     return module ? module.enabled : false;
   };
 
-  const getModule = (moduleId) => {
-    return state.modules.value.find(m => m.id === moduleId);
-  };
-
   return {
-    modules: state.modules,
+    availableModules: state.modules,
     loading: state.loading,
     error: state.error,
     init,
+    getModuleComponent,
+    getModuleById,
     toggleModule,
-    isModuleEnabled,
-    getModule
+    isModuleEnabled
   };
-} 
+};
+
+export { useModuleManager };

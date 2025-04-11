@@ -1,0 +1,79 @@
+:root {
+  /* Dark Theme Colors */
+  --bg-primary: #1a1d24;
+  --bg-secondary: #242831;
+  --bg-tertiary: #2f3440;
+  --text-primary: #e0e0e0;
+  --text-secondary: #a0a0a0;
+  --accent-primary: #4a90e2; /* Example Accent */
+  --accent-secondary: #50e3c2; /* Example Accent 2 */
+  --border-color: #404552;
+  --error-color: #e57373;
+  --success-color: #81c784;
+
+  /* Layout */
+  --sidebar-width: 260px;
+  --topbar-height: 50px;
+
+  /* Fonts */
+  --font-family: 'Inter', sans-serif; /* Example Font - needs import */
+
+  /* Transitions */
+  --transition-fast: 0.15s ease-in-out;
+  --transition-medium: 0.3s ease-in-out;
+}
+
+/* Basic Reset & Body Styles */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font-family);
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  line-height: 1.6;
+  font-size: 14px;
+  overflow: hidden; /* Prevent body scroll */
+}
+
+#app {
+  display: flex;
+  height: 100vh;
+  width: 100vw;
+}
+
+/* Scrollbar Styling (Optional but nice for dark themes) */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-secondary);
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: var(--bg-tertiary);
+  border-radius: 4px;
+  border: 2px solid var(--bg-secondary);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--border-color);
+}
+
+/* Basic Utility Classes */
+.flex-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.text-accent {
+  color: var(--accent-primary);
+}

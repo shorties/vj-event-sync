@@ -28,11 +28,13 @@
     "multer": "^1.4.5-lts.2",
     "node-osc": "^8.1.0",
     "pinia": "^3.0.1",
+    "qrcode": "^1.5.4",
     "socket.io": "^4.8.1",
     "socket.io-client": "^4.8.1",
     "sqlite3": "^5.1.7",
     "task-master-ai": "^0.9.30",
     "vue": "^3.4.21",
+    "vue-router": "4.5.0",
     "vuedraggable": "^4.1.0",
     "winston": "^3.17.0"
   },

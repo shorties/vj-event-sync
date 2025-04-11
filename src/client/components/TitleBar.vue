@@ -6,6 +6,31 @@
         <span>VJ Event Sync</span>
       </div>
     </div>
+
+    <!-- Global Controls Area -->
+    <div class="global-controls">
+      <button class="control-button" title="Start/Stop NDI Stream" @click="toggleNdi">
+        <font-awesome-icon :icon="['fa-solid', isNdiActive ? 'fa-stop' : 'fa-play']" />
+      </button>
+      <button class="control-button" title="Start/Stop Cycle" @click="toggleCycle">
+        <font-awesome-icon :icon="['fa-solid', isCyclePlaying ? 'fa-pause-circle' : 'fa-play-circle']" />
+      </button>
+      <button class="control-button" title="Settings" @click="goToSettings">
+        <font-awesome-icon icon="fa-solid fa-cog" />
+      </button>
+    </div>
+
+    <!-- Status Indicators Area -->
+    <div class="status-indicators">
+      <span class="status-item ndi-status" :class="{ active: isNdiActive }">
+        NDI: {{ isNdiActive ? 'Online' : 'Offline' }}
+      </span>
+      <span class="status-item cycle-status" :class="{ playing: isCyclePlaying }">
+        Cycle: {{ isCyclePlaying ? 'Playing' : 'Idle' }}
+      </span>
+      <span class="status-item current-time">{{ currentTime }}</span>
+    </div>
+
     <div class="window-controls">
       <button class="window-control minimize" @click="minimizeWindow" title="Minimize">
         <font-awesome-icon icon="fa-solid fa-minus" />
@@ -22,12 +47,17 @@
 
 <script>
 import { appWindow } from '@tauri-apps/api/window';
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, onUnmounted } from 'vue';
 
 export default {
   name: 'TitleBar',
-  setup() {
+  emits: ['select-module', 'ndi-toggled', 'cycle-toggled'],
+  setup(props, { emit }) {
     const isMaximized = ref(false);
+    const currentTime = ref(new Date().toLocaleTimeString());
+    const isNdiActive = ref(false);
+    const isCyclePlaying = ref(false);
+    let timeInterval = null;
 
     const minimizeWindow = async () => {
       await appWindow.minimize();
@@ -47,15 +77,48 @@ export default {
       await appWindow.close();
     };
 
-    onMounted(async () => {
-      isMaximized.value = await appWindow.isMaximized();
+    const goToSettings = () => {
+      emit('select-module', 'settings');
+    };
+
+    const toggleNdi = () => {
+      isNdiActive.value = !isNdiActive.value;
+      emit('ndi-toggled', isNdiActive.value);
+      console.log('NDI Toggled:', isNdiActive.value);
+      // TODO: Add actual NDI start/stop logic call
+    };
+
+    const toggleCycle = () => {
+      isCyclePlaying.value = !isCyclePlaying.value;
+      emit('cycle-toggled', isCyclePlaying.value);
+      console.log('Cycle Toggled:', isCyclePlaying.value);
+      // TODO: Add actual Cycle start/stop logic call
+    };
+
+    onMounted(() => {
+      isMaximized.value = appWindow.isMaximized();
+      timeInterval = setInterval(() => {
+        currentTime.value = new Date().toLocaleTimeString();
+      }, 1000);
+    });
+
+    onUnmounted(() => {
+      if (timeInterval) {
+        clearInterval(timeInterval);
+      }
     });
 
     return {
       minimizeWindow,
       maximizeWindow,
       closeWindow,
-      isMaximized
+      isMaximized,
+      currentTime,
+      goToSettings,
+      isNdiActive,
+      isCyclePlaying,
+      toggleNdi,
+      toggleCycle
     };
   }
 };
@@ -100,8 +163,72 @@ export default {
   object-fit: contain;
 }
 
+/* === Global Controls Styling === */
+.global-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px; /* Spacing between buttons */
+  margin: 0 15px; /* Spacing around the control group */
+  -webkit-app-region: no-drag; /* Ensure buttons are clickable */
+}
+
+.control-button {
+  display: flex; /* Use flex for centering icon */
+  justify-content: center;
+  align-items: center;
+  width: auto; /* Allow button to size to content + padding */
+  height: 28px; /* Slightly smaller height */
+  padding: 0 8px; /* Horizontal padding */
+  background: transparent;
+  border: none;
+  color: var(--text-color-muted); /* Muted color for inactive state */
+  cursor: pointer;
+  border-radius: var(--border-radius-small);
+  font-size: 0.9rem; /* Adjust icon size */
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.control-button:hover {
+  background-color: var(--primary-color-hover);
+  color: var(--text-color);
+}
+
+.control-button:active {
+  background-color: var(--primary-color-active);
+}
+
+/* === Status Indicators Styling === */
+.status-indicators {
+  display: flex;
+  align-items: center;
+  gap: 12px; /* Spacing between status items */
+  font-size: 0.75rem; /* Smaller font size */
+  color: var(--text-color-muted);
+  margin-right: 15px; /* Spacing before window controls */
+  -webkit-app-region: no-drag; /* Not draggable */
+}
+
+.status-item {
+  white-space: nowrap; /* Prevent wrapping */
+  padding: 2px 6px;
+  border-radius: var(--border-radius-small);
+}
+
+/* Example active states - adjust colors as needed */
+.ndi-status.active {
+  color: #ffffff;
+  background-color: #4CAF50; /* Green */
+}
+
+.cycle-status.playing {
+  color: #000000;
+  background-color: #FF9800; /* Orange */
+}
+
+/* === Window Controls (Existing) === */
 .window-controls {
   display: flex;
+  align-items: center; /* Align vertically */
   -webkit-app-region: no-drag;
 }
 

@@ -1,215 +1,152 @@
 <template>
   <div class="app-container" :class="{ 'dragging-over-app': isDraggingOverApp }">
-    <TitleBar />
-    <div class="main-content">
+    <TitleBar @select-module="selectModule" />
+    <div class="main-content-single-column"> 
       <div class="sidebar" :class="{ 'sidebar-collapsed': isSidebarCollapsed }">
+        <nav class="sidebar-nav">
+          <router-link to="/" class="nav-link" active-class="active">
+            <font-awesome-icon icon="fa-solid fa-play-circle" />
+            <span>Live View</span>
+          </router-link>
+          <router-link to="/library" class="nav-link" active-class="active">
+            <font-awesome-icon icon="fa-solid fa-images" />
+            <span>Logo Library</span>
+          </router-link>
+        </nav>
         <div class="logo">
           <img src="./assets/VJToolsRounded.ico" alt="VJ.Tools Logo" />
         </div>
         <nav class="navigation">
-          <button
-            v-for="module in availableModules"
-            :key="module.id"
-            class="nav-button"
-            :class="{ active: currentModule === module.id }"
-            @click="selectModule(module.id)"
-            :title="module.name"
-          >
-            <font-awesome-icon :icon="module.icon" />
-            <span class="nav-text">{{ module.name }}</span>
-          </button>
+          <div v-for="(modulesInGroup, groupName) in groupedModules" :key="groupName" class="nav-group">
+            <h3 class="nav-group-header" v-if="!isSidebarCollapsed">{{ groupName }}</h3>
+            <button
+              v-for="module in modulesInGroup"
+              :key="module.id"
+              class="nav-button"
+              :class="{ active: false }" 
+              @click="handleSidebarClick(module.id)" 
+              :title="module.name"
+            >
+              <font-awesome-icon :icon="module.icon" />
+              <span v-if="!isSidebarCollapsed" class="nav-text">{{ module.name }}</span>
+            </button>
+          </div>
         </nav>
         <button class="collapse-button" @click="toggleSidebar">
           <font-awesome-icon :icon="['fa-solid', isSidebarCollapsed ? 'fa-chevron-right' : 'fa-chevron-left']" />
         </button>
       </div>
-      <div class="content">
-        <div v-if="error" class="error-message">
-          <font-awesome-icon icon="fa-solid fa-exclamation-circle" />
-          <span>{{ error.message }}</span>
-        </div>
-        <div v-else>
-          <component :is="currentModuleComponent" />
-        </div>
+      <div class="content-main"> 
+        <!-- Router view will render components based on the current route -->
+        <router-view />
       </div>
     </div>
   </div>
 </template>
 
 <script>
-import { ref, computed, onMounted, shallowRef, onUnmounted } from 'vue';
+import { ref, computed, onMounted, shallowRef, onUnmounted, watch } from 'vue';
 import { listen } from '@tauri-apps/api/event';
 import { invoke } from '@tauri-apps/api/tauri';
-import FileExplorer from './components/FileExplorer.vue';
 import TitleBar from './components/TitleBar.vue';
 import { useModuleManager } from './services/ModuleManager';
 
 export default {
   name: 'App',
   components: {
-    FileExplorer,
-    TitleBar
+    TitleBar,
   },
   setup() {
     const moduleManager = useModuleManager();
-    const currentModule = ref('nowPlaying');
     const selectedArtist = ref(null);
-    const activeTab = ref('gallery');
-    const error = ref(null);
+    const activeTab = ref('gallery'); 
     const isSidebarCollapsed = ref(false);
     const searchQuery = ref('');
     const artists = ref([]);
     const logos = ref([]);
     const showFilterPanel = ref(false);
     const isDraggingOverApp = ref(false);
-    
-    let unlistenDropApp = null;
-    let unlistenHoverApp = null;
-    let unlistenCancelApp = null;
 
-    const appAddLogos = async (paths) => {
-      console.log('[App.vue] Received file paths:', paths);
-      const imageExtensions = ['.png', '.jpg', '.jpeg', '.gif', '.svg', '.webp'];
-      const validImagePaths = paths.filter(path => 
-         imageExtensions.some(ext => path.toLowerCase().endsWith(ext))
-      );
-      
-      if (validImagePaths.length === 0) {
-          console.log("[App.vue] No valid image files found in dropped items.");
-          return;
-      }
-      
-      console.log("[App.vue] Adding valid logos from paths:", validImagePaths);
-      try {
-        for (const path of validImagePaths) {
-           console.log(`[App.vue] Invoking add_logo (needs backend): ${path}`);
+    const { availableModules, getModuleComponent } = moduleManager;
+
+    const groupedModules = computed(() => {
+      const groups = {};
+      availableModules.value.forEach(module => {
+        if (!module.required) { 
+          const group = module.group || 'General';
+          if (!groups[group]) {
+            groups[group] = [];
+          }
+          groups[group].push(module);
         }
-        console.warn("[App.vue] Need to implement logo list refresh after adding.");
-
-      } catch (err) {
-        console.error('[App.vue] Error adding logo(s):', err);
-      }
-    };
-
-    const filteredLogos = computed(() => {
-      return logos.value.filter(logo => {
-        const matchesSearch = searchQuery.value === '' || 
-          logo.name.toLowerCase().includes(searchQuery.value.toLowerCase());
-        const matchesArtist = !selectedArtist.value || 
-          logo.linked_djs.includes(selectedArtist.value);
-        return matchesSearch && matchesArtist;
       });
+      return groups;
     });
-
-    const toggleFilterPanel = () => {
-      showFilterPanel.value = !showFilterPanel.value;
-    };
-
-    const availableModules = computed(() => {
-      return moduleManager.modules.value.filter(module => module.enabled || module.required);
-    });
-
-    const currentModuleComponent = computed(() => {
-      const module = moduleManager.modules.value.find(m => m.id === currentModule.value);
-      const component = module ? module.component : null;
-      console.log(`[App.vue] currentModuleComponent computed: ID=${currentModule.value}, Component=${component ? component.name || component.__name || '(Unknown Component Name)' : 'null'}`);
-      return component;
-    });
-
-    const selectModule = (moduleId) => {
-      console.log(`[App.vue] selectModule called with ID: ${moduleId}`);
-      try {
-        const targetModule = moduleManager.modules.value.find(m => m.id === moduleId);
-        if (!targetModule) {
-          console.error(`[App.vue] Module ${moduleId} not found`);
-          return;
-        }
-        if (!targetModule.enabled && !targetModule.required) {
-          console.error(`[App.vue] Module ${moduleId} is disabled`);
-          return;
-        }
-        currentModule.value = moduleId;
-        console.log(`[App.vue] currentModule ref updated to: ${currentModule.value}`);
-      } catch (err) {
-        console.error(`[App.vue] Error switching to module ${moduleId}:`, err);
-      }
-    };
 
     const toggleSidebar = () => {
       isSidebarCollapsed.value = !isSidebarCollapsed.value;
     };
 
+    const handleSidebarClick = (moduleId) => {
+      console.log(`Sidebar module clicked: ${moduleId}. Implement desired behavior.`);
+    };
+
     onMounted(async () => {
-      console.log('App.vue: Mounting component...');
-      try {
-        await moduleManager.init();
-        console.log('App.vue: Module manager initialized.');
-        
-        const defaultModuleExists = availableModules.value.some(m => m.id === currentModule.value);
-        if (!defaultModuleExists) {
-            const firstAvailable = availableModules.value[0];
-            if (firstAvailable) {
-                currentModule.value = firstAvailable.id;
-            }
-        }
-        
-        console.log('App.vue: Available modules:', availableModules.value);
-        console.log('App.vue: Current module ID:', currentModule.value);
-        console.log('App.vue: Current module component:', currentModuleComponent.value);
+      await moduleManager.init(); 
 
-        try {
-          unlistenHoverApp = await listen('tauri://file-drop-hover', (event) => {
-            console.log('[App.vue] File drop hover detected');
-            isDraggingOverApp.value = true;
-          });
-          unlistenDropApp = await listen('tauri://file-drop', (event) => {
-            console.log('[App.vue] File drop detected', event.payload);
-            if (Array.isArray(event.payload)) { 
-               appAddLogos(event.payload);
-            } else {
-               console.warn('[App.vue] Received non-array payload for file drop');
-            }
-            isDraggingOverApp.value = false;
-          });
-          unlistenCancelApp = await listen('tauri://file-drop-cancelled', (event) => {
-              console.log('[App.vue] File drop cancelled');
-              isDraggingOverApp.value = false;
-          });
-          console.log('[App.vue] Tauri file drop listeners attached.');
-        } catch (listenerError) {
-          console.error('[App.vue] Failed to attach Tauri file drop listeners:', listenerError);
-        }
+      let unlistenServerStarted = await listen('server-started', () => {
+        console.log('Server started event received in App.vue');
+      });
+      let unlistenServerStopped = await listen('server-stopped', () => {
+        console.log('Server stopped event received in App.vue');
+      });
 
-      } catch (mountError) {
-        console.error('App.vue: Error during mount:', mountError);
-        error.value = mountError;
-      }
+      document.addEventListener('dragover', handleDragOverApp);
+      document.addEventListener('dragleave', handleDragLeaveApp);
+      document.addEventListener('drop', handleDropApp);
     });
 
     onUnmounted(() => {
-      if (unlistenHoverApp) unlistenHoverApp();
-      if (unlistenDropApp) unlistenDropApp();
-      if (unlistenCancelApp) unlistenCancelApp();
-      console.log('[App.vue] App component unmounted, listeners detached.');
+      if (unlistenServerStarted) unlistenServerStarted();
+      if (unlistenServerStopped) unlistenServerStopped();
+      document.removeEventListener('dragover', handleDragOverApp);
+      document.removeEventListener('dragleave', handleDragLeaveApp);
+      document.removeEventListener('drop', handleDropApp);
     });
 
+    const handleDragOverApp = (event) => {
+      event.preventDefault();
+      isDraggingOverApp.value = true;
+    };
+
+    const handleDragLeaveApp = (event) => {
+      if (event.relatedTarget === null || !event.currentTarget.contains(event.relatedTarget)) {
+          isDraggingOverApp.value = false;
+      }
+    };
+
+    const handleDropApp = async (event) => {
+      event.preventDefault();
+      isDraggingOverApp.value = false;
+      const files = event.dataTransfer.files;
+      if (files.length > 0) {
+        console.log('Files dropped on app:', files);
+        try {
+          const filePaths = Array.from(files).map(f => f.path);
+          await invoke('handle_file_drop', { paths: filePaths });
+          console.log('File drop handled by Tauri backend.');
+        } catch (error) {
+          console.error('Error handling file drop:', error);
+        }
+      }
+    };
+
     return {
-      currentModule,
-      availableModules,
-      currentModuleComponent,
-      selectModule,
-      error,
       isSidebarCollapsed,
       toggleSidebar,
-      // Logo gallery state
-      activeTab,
-      selectedArtist,
-      searchQuery,
-      artists,
-      logos,
-      filteredLogos,
-      toggleFilterPanel,
-      showFilterPanel
+      groupedModules,
+      handleSidebarClick, 
+      isDraggingOverApp,
     };
   }
 };
@@ -217,392 +154,246 @@ export default {
 
 <style>
 :root {
-  --primary-color: #2196f3;
-  --secondary-color: #1a1a1a;
-  --background-color: #121212;
-  --text-color: #ffffff;
-  --text-color-muted: rgba(255, 255, 255, 0.6);
-  --border-color: rgba(255, 255, 255, 0.1);
-  --error-color: #e81123;
-  --success-color: #4caf50;
-  --warning-color: #ff9800;
-  --button-bg: rgba(255, 255, 255, 0.05);
-  --button-hover-bg: rgba(255, 255, 255, 0.1);
-  --border-radius: 8px;
-  --transition-speed: 0.2s;
-  --sidebar-width: 240px;
-  --sidebar-collapsed-width: 64px;
-}
+  --primary-bg: #1a1a1a;
+  --secondary-bg: #2a2a2a;
+  --tertiary-bg: #3a3a3a;
+  --text-color: #e0e0e0;
+  --text-muted: #a0a0a0;
+  --accent-color: #4a90e2;
+  --error-color: #e74c3c;
+  --success-color: #2ecc71;
+  --warning-color: #f39c12;
 
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
+  --titlebar-height: 35px;
+  --sidebar-width: 220px;
+  --sidebar-collapsed-width: 60px;
+  --panel-padding: 15px;
+  --border-radius: 4px;
+  --transition-speed: 0.3s;
+
+  --font-main: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
-  background-color: var(--background-color);
+  margin: 0;
+  font-family: var(--font-main);
+  background-color: var(--primary-bg);
   color: var(--text-color);
-  line-height: 1.5;
-  overflow: hidden;
+  overflow: hidden; 
 }
 
 .app-container {
   display: flex;
   flex-direction: column;
   height: 100vh;
-  overflow: hidden;
+  width: 100vw;
 }
 
-.main-content {
+.main-content-single-column {
   display: flex;
-  flex: 1;
-  overflow: hidden;
-  position: relative;
+  flex-grow: 1;
+  overflow: hidden; 
 }
 
 .sidebar {
   width: var(--sidebar-width);
-  background-color: var(--secondary-color);
-  border-right: 1px solid var(--border-color);
+  background-color: var(--secondary-bg);
   display: flex;
   flex-direction: column;
-  transition: width var(--transition-speed);
-  position: relative;
+  transition: width var(--transition-speed) ease;
+  flex-shrink: 0; 
+  position: relative; 
+  padding: 1rem 0;
+  display: flex;
+  flex-direction: column;
+  transition: width 0.3s ease;
+  border-right: 1px solid var(--border-color);
 }
 
 .sidebar-collapsed {
   width: var(--sidebar-collapsed-width);
 }
 
-.logo {
-  padding: 20px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  border-bottom: 1px solid var(--border-color);
+.sidebar .logo {
+  padding: 10px;
+  text-align: center;
+  margin-bottom: 10px;
 }
 
-.logo img {
-  width: 48px;
-  height: 48px;
-  object-fit: contain;
-  transition: transform var(--transition-speed);
+.sidebar .logo img {
+  max-width: 80%;
+  height: auto;
 }
 
 .sidebar-collapsed .logo img {
-  width: 32px;
-  height: 32px;
+   max-width: 40px; 
+}
+
+.sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0 1rem;
+  margin-bottom: auto;
+}
+
+.nav-link {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  border-radius: var(--border-radius);
+  color: var(--text-color-secondary);
+  text-decoration: none;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.nav-link:hover {
+  background-color: var(--surface-hover);
+  color: var(--text-color);
+}
+
+.nav-link.active {
+  background-color: var(--primary-color-muted);
+  color: var(--primary-color-text);
+  font-weight: 500;
+}
+
+.nav-link .fa-icon {
+  width: 1.2em;
+  text-align: center;
 }
 
 .navigation {
-  padding: 20px 0;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  flex: 1;
+  flex-grow: 1;
   overflow-y: auto;
+  padding: 0 10px;
+}
+
+.nav-group {
+  margin-bottom: 15px;
+}
+
+.nav-group-header {
+  font-size: 0.8em;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  margin: 15px 0 5px 5px;
+  font-weight: bold;
+}
+
+.sidebar-collapsed .nav-group-header {
+  display: none;
 }
 
 .nav-button {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 12px 20px;
-  background: transparent;
+  width: 100%;
+  padding: 10px;
+  background: none;
   border: none;
-  color: var(--text-color);
-  cursor: pointer;
-  transition: all var(--transition-speed);
+  color: var(--text-muted);
   text-align: left;
-  white-space: nowrap;
-  overflow: hidden;
+  cursor: pointer;
+  border-radius: var(--border-radius);
+  margin-bottom: 5px;
+  transition: background-color var(--transition-speed), color var(--transition-speed);
+}
+
+.sidebar-collapsed .nav-button {
+  justify-content: center;
+  padding: 10px 0;
+}
+
+.nav-button .svg-inline--fa {
+  margin-right: 10px;
+  width: 1.2em; 
+  text-align: center;
+}
+
+.sidebar-collapsed .nav-button .svg-inline--fa {
+  margin-right: 0;
+  font-size: 1.4em; 
+}
+
+.sidebar-collapsed .nav-text {
+  display: none;
 }
 
 .nav-button:hover {
-  background-color: rgba(255, 255, 255, 0.1);
+  background-color: var(--tertiary-bg);
+  color: var(--text-color);
 }
 
 .nav-button.active {
-  background-color: var(--primary-color);
+  background-color: var(--accent-color);
   color: white;
-}
-
-.nav-button i {
-  width: 20px;
-  text-align: center;
-  font-size: 16px;
+  font-weight: bold;
 }
 
 .collapse-button {
   position: absolute;
-  bottom: 20px;
-  right: 20px;
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  background: var(--primary-color);
+  bottom: 10px;
+  right: 10px;
+  background: var(--tertiary-bg);
   border: none;
-  color: white;
+  color: var(--text-muted);
+  padding: 8px;
+  border-radius: 50%;
   cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all var(--transition-speed);
+  transition: background-color var(--transition-speed), color var(--transition-speed);
+}
+
+.sidebar-collapsed .collapse-button {
+  right: 50%;
+  transform: translateX(50%);
 }
 
 .collapse-button:hover {
-  transform: scale(1.1);
-}
-
-.content {
-  flex: 1;
-  padding: 20px;
-  overflow-y: auto;
-}
-
-.logo-section {
-  background: var(--secondary-color);
-  border-radius: var(--border-radius);
-  border: 1px solid var(--border-color);
-  overflow: hidden;
-}
-
-.section-header {
-  display: flex;
-  align-items: center;
-  padding: 8px;
-  background: var(--secondary-color);
-  border-bottom: 1px solid var(--border-color);
-  gap: 8px;
-}
-
-.drag-handle {
-  cursor: move;
-  padding: 4px;
-  color: var(--text-color-muted);
-}
-
-.section-title {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 0;
-  font-size: 1rem;
-  font-weight: 600;
-}
-
-.section-controls {
-  margin-left: auto;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.tab-controls {
-  display: flex;
-  gap: 4px;
-}
-
-.tab-button {
-  padding: 6px;
-  min-width: 32px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--button-bg);
-  border: 1px solid var(--border-color);
-  border-radius: var(--border-radius);
-  color: var(--text-color);
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.tab-button:hover {
-  background: var(--button-hover-bg);
-}
-
-.tab-button.active {
-  background: var(--primary-color);
+  background-color: var(--accent-color);
   color: white;
-  border-color: var(--primary-color);
 }
 
-.control-button {
-  padding: 6px;
-  min-width: 32px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--button-bg);
-  border: 1px solid var(--border-color);
-  border-radius: var(--border-radius);
-  color: var(--text-color);
-  cursor: pointer;
-  transition: all 0.2s ease;
+.content-main {
+  flex-grow: 1;
+  background-color: var(--primary-bg);
+  padding: var(--panel-padding);
+  overflow: hidden; 
+  display: flex; 
 }
 
-.control-button:hover {
-  background: var(--button-hover-bg);
+.content-main > * {
+  flex-grow: 1;
 }
 
-.artist-filter {
-  padding: 6px 8px;
-  height: 32px;
-  background: var(--button-bg);
-  border: 1px solid var(--border-color);
-  border-radius: var(--border-radius);
-  color: var(--text-color);
-  cursor: pointer;
-}
-
-.search-container {
-  display: flex;
-  gap: 4px;
-}
-
-.search-filter-dynamic {
-  padding: 6px 8px;
-  height: 32px;
-  background: var(--button-bg);
-  border: 1px solid var(--border-color);
-  border-radius: var(--border-radius);
-  color: var(--text-color);
-  width: 200px;
-  transition: all 0.2s ease;
-}
-
-.section-content {
-  padding: 16px;
-}
-
-.logo-gallery {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-  gap: 16px;
-  padding: 16px;
-}
-
-.logo-item {
-  background: var(--background-color);
-  border: 1px solid var(--border-color);
-  border-radius: var(--border-radius);
-  overflow: hidden;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.logo-item:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-}
-
-.logo-preview {
-  aspect-ratio: 16/9;
-  overflow: hidden;
-  background: var(--secondary-color);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.logo-preview img {
+.module-container {
+  height: 100%;
   width: 100%;
-  height: 100%;
-  object-fit: contain;
-}
-
-.logo-info {
-  padding: 8px;
-}
-
-.logo-name {
-  font-size: 0.9rem;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.file-explorer-container {
-  height: 500px;
-}
-
-.module-content {
-  background-color: var(--secondary-color);
-  border-radius: var(--border-radius);
-  padding: 20px;
-  height: 100%;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-}
-
-.loading {
   display: flex;
   flex-direction: column;
+}
+
+.loading-indicator, .error-message {
+  display: flex;
   align-items: center;
   justify-content: center;
-  gap: 16px;
   height: 100%;
-  color: var(--text-color);
-  opacity: 0.7;
-}
-
-.loading-spinner {
-  font-size: 32px;
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  color: var(--text-muted);
+  font-size: 1.2em;
 }
 
 .error-message {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 16px;
-  background-color: var(--error-color);
-  color: white;
-  border-radius: var(--border-radius);
-  margin-bottom: 20px;
+  color: var(--error-color);
 }
 
-.error-message i {
-  font-size: 20px;
+.loading-indicator .svg-inline--fa,
+.error-message .svg-inline--fa {
+  margin-right: 10px;
 }
 
-@media (max-width: 768px) {
-  .sidebar {
-    width: var(--sidebar-collapsed-width);
-  }
-
-  .nav-text {
-    display: none;
-  }
-
-  .logo {
-    padding: 12px;
-  }
-
-  .logo img {
-    width: 32px;
-    height: 32px;
-  }
-
-  .nav-button {
-    padding: 12px;
-    justify-content: center;
-  }
-
-  .nav-button i {
-    margin: 0;
-  }
-
-  .collapse-button {
-    display: none;
-  }
+.app-container.dragging-over-app {
+  outline: 3px dashed var(--accent-color);
+  outline-offset: -5px;
 }
-</style> 
+</style>

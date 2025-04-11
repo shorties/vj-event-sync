@@ -1,321 +1,221 @@
 <template>
   <div class="live-control-container">
-    <!-- I. Top Bar: Now Showing + Time -->
+    <!-- I. Top Bar: Now Playing Info -->
     <div class="top-bar">
-      <div class="now-showing">
-        <div class="now-showing-title">NOW SHOWING</div>
-        <div 
-          class="now-showing-preview"
-          @dragover.prevent 
-          @drop="handleDropOnNowPlaying"
-        >
-          <div class="preview-content">
+      <div class="now-playing" :class="{ 'is-collapsed': !isExpanded }">
+        <div class="now-playing-header" @click="toggleExpand">
+          <div class="header-left">
             <font-awesome-icon :icon="currentlyShowing?.icon || 'fa-solid fa-play-circle'" />
-            <span>{{ currentlyShowing?.name || 'No content playing' }}</span>
+            <span class="header-title">NOW PLAYING</span>
+            <!-- Source Indicator Icon -->
+            <span v-if="currentlyShowing?.source" class="source-indicator" :title="`Source: ${currentlyShowing.source}`">
+              <font-awesome-icon v-if="currentlyShowing.source === 'cycle'" icon="fa-solid fa-sync" />
+              <font-awesome-icon v-else-if="currentlyShowing.source === 'schedule'" icon="fa-solid fa-calendar-alt" />
+              <font-awesome-icon v-else-if="currentlyShowing.source === 'manual'" icon="fa-solid fa-hand-pointer" />
+              <font-awesome-icon v-else-if="currentlyShowing.source === 'gallery'" icon="fa-solid fa-th-large" />
+            </span>
+            <span v-if="!isExpanded && currentlyShowing" class="current-info">: {{ currentlyShowing.name }}</span>
           </div>
-          <div class="progress-bar-container">
-            <div class="progress-bar" :style="{ width: currentlyShowing?.progress + '%' || '0%' }"></div>
+          <div class="header-right">
+            <div class="progress-pill" v-if="currentlyShowing">
+              {{ Math.round(currentlyShowing.progress) }}%
+            </div>
+            <button class="expand-toggle">
+              <font-awesome-icon :icon="isExpanded ? 'fa-solid fa-chevron-up' : 'fa-solid fa-chevron-down'" />
+            </button>
           </div>
         </div>
-      </div>
-      <div class="time-display">
-        <div :class="['system-time', timeUrgencyClass]">
-          <font-awesome-icon icon="fa-solid fa-clock" />
-          <span>{{ formatTime(currentTime) }}</span>
-        </div>
-        <div class="global-controls">
-          <button 
-            class="control-button" 
-            @click="toggleTimeFormat"
-            :title="is24HourFormat ? 'Switch to 12-Hour Format' : 'Switch to 24-Hour Format'"
+
+        <transition name="expand">
+          <div v-show="isExpanded" class="now-playing-content"
+            :class="{ 'dragging-over': isDraggingOverNowPlaying }"
+            @dragover.prevent 
+            @drop="handleDropOnNowPlaying"
+            @dragenter.prevent="handleDragEnterNowPlaying"
+            @dragleave.prevent="handleDragLeaveNowPlaying"
           >
-            <font-awesome-icon icon="fa-solid fa-clock" /> {{ is24HourFormat ? '24H' : '12H' }}
-          </button>
-          <button 
-            class="control-button" 
-            @click="toggleTimeZone"
-            :title="currentTimeZone === 'local' ? 'Switch to UTC Time' : 'Switch to Local Time'"
-          >
-            <font-awesome-icon icon="fa-solid fa-globe" /> {{ currentTimeZone.toUpperCase() }}
-          </button>
-          <button class="control-button settings-button" title="App Settings">
-            <font-awesome-icon icon="fa-solid fa-cog" />
-          </button>
-        </div>
+            <div class="preview-content">
+              <div class="preview-area">
+                <!-- Add preview component here later -->
+                <div class="preview-placeholder" v-if="currentlyShowing">
+                  <img v-if="isImage(currentlyShowing.path)" :src="currentlyShowing.path" alt="Preview" />
+                  <video v-else :src="currentlyShowing.path" muted></video>
+                </div>
+                <div v-else class="empty-preview">
+                  <font-awesome-icon icon="fa-solid fa-inbox" />
+                  <span>No content playing</span>
+                </div>
+              </div>
+              <div class="progress-bar-container">
+                <div class="progress-bar" :style="{ width: currentlyShowing?.progress + '%' || '0%' }"></div>
+              </div>
+            </div>
+          </div>
+        </transition>
       </div>
     </div>
 
-    <!-- II. Main Content: GRIDSTACK LAYOUT -->
-    <div class="main-content-grid">
-      <div class="grid-stack">
-        <!-- Gridstack items wrap the sections -->
-        <div class="grid-stack-item" gs-id="cycle" gs-x="0" gs-y="0" gs-w="8" gs-h="3">
-          <div :class="['grid-stack-item-content', 'section', 'cycle-section', { collapsed: sectionStates.cycle.collapsed }]" >
-            <div class="section-header">
-              <div class="drag-handle" title="Move Section">
-                  <font-awesome-icon icon="fa-solid fa-ellipsis-h" />
-              </div>
-              <h4 class="section-title">
-                <font-awesome-icon icon="fa-solid fa-sync" />
-                CYCLE
-              </h4>
-              <div class="section-controls">
-                <button 
-                  class="control-button collapse-btn" 
-                  @click="toggleCollapse('cycle')" 
-                  :title="sectionStates.cycle.collapsed ? 'Expand Section' : 'Collapse Section'"
-                >
-                  <font-awesome-icon :icon="['fa-solid', sectionStates.cycle.collapsed ? 'fa-plus' : 'fa-minus']" />
-                </button>
-                <button 
-                  class="control-button expand-btn" 
-                  @click="expandSection('cycle')" 
-                  title="Maximize Section (Not Implemented)"
-                >
-                  <font-awesome-icon icon="fa-solid fa-expand-alt" />
-                </button>
-                <button class="control-button" @click="toggleCycleLock" :title="isCycleLocked ? 'Unlock Cycle' : 'Lock Cycle'">
-                  <font-awesome-icon :icon="isCycleLocked ? 'fa-solid fa-lock' : 'fa-solid fa-lock-open'" />
-                </button>
-                <button class="control-button" @click="refreshCycle" title="Refresh Cycle">
-                  <font-awesome-icon icon="fa-solid fa-sync" />
-                </button>
+    <!-- II. Main Content: Vertical Layout -->
+    <div class="main-content-area">
+      <!-- A. Cycle Queue Section -->
+      <div :class="['section', 'cycle-section', { collapsed: sectionStates.cycle.collapsed }]">
+        <div class="section-header">
+          <div class="drag-handle" title="Move Section">
+            <font-awesome-icon icon="fa-solid fa-ellipsis-h" />
+          </div>
+          <h4 class="section-title">
+            <font-awesome-icon icon="fa-solid fa-sync" />
+            CYCLE
+          </h4>
+          <div class="section-controls">
+            <!-- Local Play/Pause Button -->
+            <button 
+              :class="['control-button', 'play-pause-btn', { 'active': isCyclePlaying }]" 
+              @click="toggleCyclePlayback" 
+              :title="isCyclePlaying ? 'Pause Cycle' : 'Play Cycle'"
+            >
+              <font-awesome-icon :icon="['fa-solid', isCyclePlaying ? 'fa-pause' : 'fa-play']" />
+            </button>
+            <button 
+              class="control-button collapse-btn" 
+              @click="toggleCollapse('cycle')" 
+              :title="sectionStates.cycle.collapsed ? 'Expand Section' : 'Collapse Section'"
+            >
+              <font-awesome-icon :icon="['fa-solid', sectionStates.cycle.collapsed ? 'fa-plus' : 'fa-minus']" />
+            </button>
+            <button 
+              class="control-button expand-btn" 
+              @click="expandSection('cycle')" 
+              title="Maximize Section (Not Implemented)"
+            >
+              <font-awesome-icon icon="fa-solid fa-expand-alt" />
+            </button>
+            <button class="control-button" @click="toggleCycleLock" :title="isCycleLocked ? 'Unlock Cycle' : 'Lock Cycle'">
+              <font-awesome-icon :icon="isCycleLocked ? 'fa-solid fa-lock' : 'fa-solid fa-lock-open'" />
+            </button>
+            <button class="control-button" @click="refreshCycle" title="Refresh Cycle">
+              <font-awesome-icon icon="fa-solid fa-sync" />
+            </button>
+          </div>
+        </div>
+        <div class="section-body item-container horizontal-scroll"
+          :class="{ 'dragging-over': isDraggingOverCycle }"
+          v-show="!sectionStates.cycle.collapsed"
+          @dragover.prevent
+          @dragenter.prevent="handleDragEnterCycle"
+          @dragleave.prevent="handleDragLeaveCycle"
+          @drop.prevent="handleDropOnCycle"
+        >
+          <div v-if="loading.cycle" class="loading-state">
+            <font-awesome-icon icon="fa-solid fa-spinner" spin />
+            <span>Loading cycle items...</span>
+          </div>
+          <div v-else-if="errors.cycle" class="error-state">
+            <font-awesome-icon icon="fa-solid fa-exclamation-circle" />
+            <span>{{ errors.cycle }}</span>
+          </div>
+          <div v-else-if="!cycleItems.length" class="empty-state">
+            <font-awesome-icon icon="fa-solid fa-inbox" />
+            <span>Empty Cycle</span>
+          </div>
+          <div v-else v-for="(item, index) in cycleItems" 
+               :key="item.id" 
+               :class="['item-box cycle-item', item.status, { 
+                   active: currentlyShowing?.id === item.id && currentlyShowing?.source === 'cycle', 
+                   selected: selectedItem?.id === item.id,
+                   'next-up': nextCycleItem && item.id === nextCycleItem.id, // Add next-up class
+                   expanded: expandedItem.id === item.id,
+                   'drag-over': dragOverIndex === index // Class for visual feedback
+               }]" 
+               draggable="true"                             
+               @dragstart="handleCycleDragStart(item, index, $event)" 
+               @dragover.prevent="handleCycleDragOver(index, $event)"
+               @dragleave="handleCycleDragLeave()"
+               @drop.prevent="handleCycleDrop(index, $event)"    
+               @click="toggleSelectItem(item)">
+            <!-- Thumbnail Area -->
+            <div class="item-thumbnail">
+              <img v-if="item.path && isImage(item.path)" :src="item.path" alt="Logo Preview" @error="handleImageError" />
+              <video v-else-if="item.path" :src="item.path" muted playsinline preload="metadata"></video>
+              <div v-else class="thumbnail-placeholder">
+                <font-awesome-icon icon="fa-solid fa-photo-film" />
               </div>
             </div>
-            <div class="section-body item-container horizontal-scroll" v-show="!sectionStates.cycle.collapsed">
-              <div v-if="loading.cycle" class="loading-state">
-                <font-awesome-icon icon="fa-solid fa-spinner" spin />
-                <span>Loading cycle items...</span>
+            <div class="item-content">
+              <div class="item-header">
+                <span v-if="item.status === 'scheduled'" class="icon lock-icon">
+                  <font-awesome-icon icon="fa-solid fa-lock" />
+                </span>
+                <span class="item-name">{{ item.name }}</span>
               </div>
-              <div v-else-if="errors.cycle" class="error-state">
-                <font-awesome-icon icon="fa-solid fa-exclamation-circle" />
-                <span>{{ errors.cycle }}</span>
+              <div class="item-meta">
+                <span class="item-duration">{{ formatDuration(item.duration) }}</span>
+                <span class="item-type">{{ item.type }}</span>
               </div>
-              <div v-else-if="!cycleItems.length" class="empty-state">
-                <font-awesome-icon icon="fa-solid fa-inbox" />
-                <span>Empty Cycle</span>
+            </div>
+            <div class="progress-bar-container" v-if="item.status === 'cycle'"> 
+              <div class="progress-bar" :style="{ width: (currentlyShowing?.id === item.id ? currentlyShowing?.progress : 0) + '%' }"></div>
+            </div>
+            <div class="item-details" v-if="expandedItem.id === item.id && expandedItem.type === 'cycle'">
+              <h6>Cycle Item Details</h6>
+              <div class="detail-field">
+                <label>Duration (seconds):</label>
+                <input type="number" v-model.number="expandedItem.data.duration" min="1" placeholder="Default">
               </div>
-              <div v-else v-for="item in cycleItems" 
-                   :key="item.id" 
-                   :class="['item-box cycle-item', item.status, { 
-                       active: currentlyShowing?.id === item.id && currentlyShowing?.type === 'cycle', 
-                       selected: selectedItem?.id === item.id,
-                       expanded: expandedItem.id === item.id
-                   }]" 
-                   @click="toggleSelectItem(item)">
-                <div class="item-content">
-                  <div class="item-header">
-                    <span v-if="item.status === 'scheduled'" class="icon lock-icon">
-                      <font-awesome-icon icon="fa-solid fa-lock" />
-                    </span>
-                    <span class="item-name">{{ item.name }}</span>
-                  </div>
-                  <div class="item-meta">
-                    <span class="item-duration">{{ formatDuration(item.duration) }}</span>
-                    <span class="item-type">{{ item.type }}</span>
-                  </div>
-                </div>
-                <div class="progress-bar-container" v-if="item.status === 'cycle'"> 
-                  <div class="progress-bar" :style="{ width: (currentlyShowing?.id === item.id ? currentlyShowing?.progress : 0) + '%' }"></div>
-                </div>
-                <div class="item-details" v-if="expandedItem.id === item.id && expandedItem.type === 'cycle'">
-                  <h6>Cycle Item Details</h6>
-                  <div class="detail-field">
-                    <label>Duration (seconds):</label>
-                    <input type="number" v-model.number="expandedItem.data.duration" min="1" placeholder="Default">
-                  </div>
-                  <button @click="saveExpandedItemDetails">Save Details</button> 
-                </div>
-              </div>
+              <button @click="saveExpandedItemDetails">Save Details</button> 
             </div>
           </div>
         </div>
-
-        <div class="grid-stack-item" gs-id="gallery" gs-x="0" gs-y="3" gs-w="8" gs-h="9">
-          <div :class="['grid-stack-item-content', 'section', 'gallery-section', { collapsed: sectionStates.gallery.collapsed }]" >
-             <div class="section-header">
-               <div class="drag-handle" title="Move Section">
-                   <font-awesome-icon icon="fa-solid fa-ellipsis-h" />
-               </div>
-               <h4 class="section-title">
-                 <font-awesome-icon icon="fa-solid fa-th-large" /> <!-- Added gallery icon -->
-                 LOGO GALLERY <span v-if="galleryFilter">({{ galleryFilter }})</span>
-               </h4>
-               <div class="section-controls">
-                  <button 
-                    class="control-button collapse-btn" 
-                    @click="toggleCollapse('gallery')" 
-                    :title="sectionStates.gallery.collapsed ? 'Expand Section' : 'Collapse Section'"
-                  >
-                    <font-awesome-icon :icon="['fa-solid', sectionStates.gallery.collapsed ? 'fa-plus' : 'fa-minus']" />
-                  </button>
-                  <button 
-                    class="control-button expand-btn" 
-                    @click="expandSection('gallery')" 
-                    title="Maximize Section (Not Implemented)"
-                  >
-                    <font-awesome-icon icon="fa-solid fa-expand-alt" />
-                  </button>
-                  <button class="control-button" @click="toggleGalleryFilter" :title="galleryFilter ? 'Clear Filter' : 'Filter Gallery'">
-                    <font-awesome-icon icon="fa-solid fa-filter" />
-                  </button>
-                  <select v-model="gallerySelectedArtist" class="filter-select artist-filter" title="Filter by Artist">
-                    <option :value="null">All Artists</option>
-                    <option v-if="loading.artists" disabled value="">Loading...</option>
-                    <option v-else-if="errors.artists" disabled value="">Error loading</option>
-                    <template v-else>
-                      <option v-for="artist in artists" :key="artist.id" :value="artist.id">
-                        {{ artist.name }}
-                      </option>
-                    </template>
-                  </select>
-                  <!-- Dynamic Search Input Area -->
-                  <div class="search-container" :class="{ active: isSearchActive }">
-                     <button 
-                       class="control-button search-toggle-btn" 
-                       @click="activateSearch"
-                       v-show="!isSearchActive" 
-                       title="Search Logos"
-                     >
-                       <font-awesome-icon icon="fa-solid fa-search" />
-                     </button>
-                     <input 
-                       ref="searchInputRef" 
-                       type="text" 
-                       v-model="gallerySearchTerm" 
-                       placeholder="Search..." 
-                       class="filter-input search-filter-dynamic" 
-                       v-show="isSearchActive"
-                       @blur="deactivateSearch"
-                       @keyup.esc="cancelSearch"
-                     />
-                  </div>
-                  <!-- End Dynamic Search -->
-               </div>
-             </div>
-             <div class="section-body gallery-body" v-show="!sectionStates.gallery.collapsed">
-                 <div v-if="loading.gallery">Loading...</div>
-                 <div v-else-if="errors.gallery" class="error">{{ errors.gallery }}</div>
-                 <div v-else-if="!filteredGalleryItems.length" class="empty">Empty Gallery</div>
-                 <div v-else v-for="logo in filteredGalleryItems" 
-                      :key="logo.id" 
-                      :class="['grid-stack-item']" 
-                      :gs-id="logo.id" 
-                      :gs-w="2" :gs-h="1" :gs-min-w="1" :gs-min-h="1"
-                 >
-                   <div class="grid-stack-item-content gallery-item-content">
-                       <!-- ... item-box for thumbnail view ... -->
-                       <div 
-                           :class="['item-box gallery-item', getGalleryItemStatusClass(logo), { expanded: expandedItem.id === logo.id }]" 
-                           @click="toggleExpand(logo, 'gallery')" 
-                           :style="{ backgroundImage: logo.thumbnail_path ? `url('${convertFileSrc(logo.thumbnail_path)}')` : 'none' }"
-                           :title="logo.name">
-                           <!-- ... item header and progress bar ... -->
-                       </div>
-                       
-                       <!-- Gallery Item Expanded Details -->
-                       <div v-if="expandedItem.id === logo.id && expandedItem.type === 'gallery'" class="item-details gallery-details">
-                           <div class="details-preview">
-                              <img 
-                                v-if="logo.file_path" 
-                                :src="convertFileSrc(logo.file_path)" 
-                                :alt="logo.name + ' preview'" 
-                                class="preview-image"
-                              />
-                              <div v-else class="no-preview">
-                                 <font-awesome-icon icon="fa-solid fa-image" />
-                                 <span>No Preview Available</span>
-                              </div>
-                           </div>
-                           <div class="details-info">
-                               <h6>{{ logo.name }}</h6>
-                               <div class="detail-field">
-                                   <label><font-awesome-icon icon="fa-solid fa-paint-brush" /> Artist:</label>
-                                   <span>{{ getArtistName(logo.artist_id) || 'Unknown' }}</span>
-                               </div>
-                               <div class="detail-field">
-                                   <label><font-awesome-icon icon="fa-solid fa-tags" /> Tags:</label>
-                                   <span>{{ logo.tags || 'None' }}</span>
-                               </div>
-                                <div class="detail-field">
-                                   <label><font-awesome-icon icon="fa-solid fa-link" /> Linked DJs:</label>
-                                   <span>{{ logo.linked_djs?.join(', ') || 'None' }}</span>
-                               </div>
-                               <div class="detail-field path-field">
-                                   <label><font-awesome-icon icon="fa-solid fa-file" /> Path:</label>
-                                   <span :title="logo.file_path">{{ logo.file_path }}</span>
-                               </div>
-                               <div class="details-actions">
-                                   <button 
-                                     @click.stop="addToCycle(logo)" 
-                                     class="action-button add-to-cycle-btn"
-                                     :disabled="cycleItems.some(item => item.logo_id === logo.id)" 
-                                     title="Add this logo to the end of the default cycle"
-                                    >
-                                     <font-awesome-icon icon="fa-solid fa-plus-circle" /> Add to Cycle
-                                   </button>
-                                   <!-- Add other actions like Edit, Delete? -->
-                               </div>
-                           </div>
-                       </div>
-                   </div>
-                 </div>
-             </div>
+      </div>
+      <!-- B. Scheduler Section -->
+      <div :class="['section', 'schedule-section', { collapsed: sectionStates.schedule.collapsed }]">
+        <div class="section-header">
+          <div class="drag-handle" title="Move Section">
+            <font-awesome-icon icon="fa-solid fa-ellipsis-h" />
+          </div>
+          <h4 class="section-title">
+            <font-awesome-icon icon="fa-solid fa-calendar-alt" /> <!-- Added schedule icon -->
+            SCHEDULE
+          </h4>
+          <div class="section-controls">
+            <button 
+              class="control-button collapse-btn" 
+              @click="toggleCollapse('schedule')" 
+              :title="sectionStates.schedule.collapsed ? 'Expand Section' : 'Collapse Section'"
+            >
+              <font-awesome-icon :icon="['fa-solid', sectionStates.schedule.collapsed ? 'fa-plus' : 'fa-minus']" />
+            </button>
+            <button 
+              class="control-button expand-btn" 
+              @click="expandSection('schedule')" 
+              title="Maximize Section (Not Implemented)"
+            >
+              <font-awesome-icon icon="fa-solid fa-expand-alt" />
+            </button>
+            <button class="control-button" @click="toggleScheduleLock" :title="isScheduleLocked ? 'Unlock Schedule' : 'Lock Schedule'">
+              <font-awesome-icon :icon="isScheduleLocked ? 'fa-solid fa-lock' : 'fa-solid fa-lock-open'" />
+            </button>
+            <button class="control-button" @click="refreshSchedule" title="Refresh Schedule">
+              <font-awesome-icon icon="fa-solid fa-sync" />
+            </button>
           </div>
         </div>
-        
-        <div class="grid-stack-item" gs-id="schedule" gs-x="8" gs-y="0" gs-w="4" gs-h="12">
-          <div :class="['grid-stack-item-content', 'section', 'schedule-section', { collapsed: sectionStates.schedule.collapsed }]" >
-             <div class="section-header">
-                <div class="drag-handle" title="Move Section">
-                    <font-awesome-icon icon="fa-solid fa-ellipsis-h" />
-                </div>
-                <h4 class="section-title">
-                  <font-awesome-icon icon="fa-solid fa-calendar-alt" /> <!-- Added schedule icon -->
-                  SCHEDULE
-                </h4>
-                <div class="section-controls">
-                  <button 
-                    class="control-button collapse-btn" 
-                    @click="toggleCollapse('schedule')" 
-                    :title="sectionStates.schedule.collapsed ? 'Expand Section' : 'Collapse Section'"
-                  >
-                    <font-awesome-icon :icon="['fa-solid', sectionStates.schedule.collapsed ? 'fa-plus' : 'fa-minus']" />
-                  </button>
-                  <button 
-                    class="control-button expand-btn" 
-                    @click="expandSection('schedule')" 
-                    title="Maximize Section (Not Implemented)"
-                  >
-                    <font-awesome-icon icon="fa-solid fa-expand-alt" />
-                  </button>
-                  <button class="control-button" @click="toggleScheduleLock" :title="isScheduleLocked ? 'Unlock Schedule' : 'Lock Schedule'">
-                    <font-awesome-icon :icon="isScheduleLocked ? 'fa-solid fa-lock' : 'fa-solid fa-lock-open'" />
-                  </button>
-                  <button class="control-button" @click="refreshSchedule" title="Refresh Schedule">
-                    <font-awesome-icon icon="fa-solid fa-sync" />
-                  </button>
-                </div>
-             </div>
-             <div class="section-body schedule-list-container" v-show="!sectionStates.schedule.collapsed">
-                 <div v-if="loading.schedule">Loading...</div>
-                 <div v-else-if="errors.schedule" class="error">{{ errors.schedule }}</div>
-                 <div v-else-if="!scheduleItems.length" class="empty">No Schedule</div>
-                 <ul v-else class="schedule-list">
-                   <li v-for="event in scheduleItems" 
-                       :key="event.id" 
-                       :class="{ selected: selectedItem?.id === event.id }" 
-                       @click="toggleSelectItem(event)">
-                     <span class="time">{{ formatScheduleTime(event.time) }}</span> 
-                     <span class="name">{{ event.name }}</span>
-                   </li>
-                 </ul>
-             </div>
-          </div>
+        <div class="section-body schedule-list-container" v-show="!sectionStates.schedule.collapsed">
+          <div v-if="loading.schedule">Loading...</div>
+          <div v-else-if="errors.schedule" class="error">{{ errors.schedule }}</div>
+          <div v-else-if="!scheduleItems.length" class="empty">No Schedule</div>
+          <ul v-else class="schedule-list">
+            <li v-for="event in scheduleItems" 
+                :key="event.id" 
+                :class="{ selected: selectedItem?.id === event.id }" 
+                @click="toggleSelectItem(event)">
+              <span class="time">{{ formatScheduleTime(event.time) }}</span> 
+              <span class="name">{{ event.name }}</span>
+            </li>
+          </ul>
         </div>
-
-      </div> <!-- End grid-stack -->
-    </div> <!-- End main-content-grid -->
+      </div>
+    </div> <!-- End main-content-area -->
 
     <!-- III. Bottom Bar: Tabs -->
     <div class="bottom-bar">
@@ -409,23 +309,18 @@
           </div>
           <div class="tab-footer">
             <div class="footer-section">
-                <!-- REMOVE status message P tag -->
-                <!-- <div class="status-message" :class="{ error: saveCycleError }">{{ saveCycleStatus }}</div> -->
-                <div class="action-buttons">
-                  <button @click="handleSaveCycleOrder" :disabled="loading.cycle">...</button>
-                </div>
+              <div class="action-buttons">
+                <button @click="handleSaveCycleOrder" :disabled="loading.cycle">...</button>
+              </div>
             </div>
             <hr class="footer-divider">
             <div class="footer-section save-named-cycle">
-               <h5>Save Current Order As:</h5>
-               <div class="save-named-group">
-                  <input type="text" v-model="newCycleGroupName" :disabled="loading.saveNamedCycle"/>
-                  <button @click="handleSaveNamedCycle" :disabled="loading.saveNamedCycle">...</button>
-               </div>
-               <!-- REMOVE status message P tag -->
-               <!-- <div class="status-message" :class="{ error: saveNamedCycleError }">{{ saveNamedCycleStatus }}</div> -->
+              <h5>Save Current Order As:</h5>
+              <div class="save-named-group">
+                <input type="text" v-model="newCycleGroupName" :disabled="loading.saveNamedCycle"/>
+                <button @click="handleSaveNamedCycle" :disabled="loading.saveNamedCycle">...</button>
+              </div>
             </div>
-             <!-- TODO: Add section to load/manage saved cycles -->
           </div>
         </div>
 
@@ -613,6 +508,31 @@
         </transition-group>
     </div>
 
+    <!-- Now Playing Section -->
+    <div class="now-playing-container" :class="{ 'is-collapsed': !isExpanded }">
+      <div class="section-header" @click="toggleExpand">
+        <div class="header-left">
+          <font-awesome-icon :icon="['fas', 'play-circle']" />
+          <span>Now Playing</span>
+          <span v-if="!isExpanded && currentItem" class="collapsed-info">: {{ currentItem.name }}</span>
+        </div>
+        <button class="expand-toggle-btn">
+          <font-awesome-icon :icon="isExpanded ? 'fa-solid fa-chevron-up' : 'fa-solid fa-chevron-down'" />
+        </button>
+      </div>
+      <transition name="expand">
+        <div v-show="isExpanded" class="now-playing-content">
+          <div v-if="!currentItem" class="empty-state">
+            <font-awesome-icon icon="fa-solid fa-inbox" class="empty-state-icon" />
+            <p>Nothing playing. Drag items to the cycle.</p>
+          </div>
+          <div v-else>
+            <h4>{{ currentItem.name }}</h4>
+            <p>Progress: {{ currentItem.progress }}%</p>
+          </div>
+        </div>
+      </transition>
+    </div>
   </div>
 </template>
 
@@ -621,12 +541,21 @@ import { ref, reactive, computed, onMounted, onUnmounted, nextTick, watch, shall
 import { invoke } from '@tauri-apps/api/tauri';
 import { getCurrent } from '@tauri-apps/api/window';
 import { listen } from '@tauri-apps/api/event';
+import { library } from '@fortawesome/fontawesome-svg-core';
+import { faChevronUp, faChevronDown, faInbox, faPlayCircle, faClock, faEllipsisH } from '@fortawesome/free-solid-svg-icons';
 import 'gridstack/dist/gridstack.min.css';
+import { useModuleStore } from '../stores/modules';
+
+// Add necessary icons
+library.add(faChevronUp, faChevronDown, faInbox, faPlayCircle, faClock, faEllipsisH);
 import { GridStack } from 'gridstack';
 import draggable from 'vuedraggable';
 import { open } from '@tauri-apps/api/dialog';
 import { convertFileSrc } from '@tauri-apps/api/tauri';
 import FileExplorer from './FileExplorer.vue';
+
+// --- Store Setup ---
+const moduleStore = useModuleStore();
 
 // --- Gridstack State --- 
 const grid = ref(null);
@@ -638,12 +567,7 @@ const isSearchActive = ref(false);
 const searchInputRef = ref(null);
 
 // --- Other State --- 
-const currentTime = ref(new Date());
-const is24HourFormat = ref(true);
-const currentTimeZone = ref('local');
-const clockTimer = ref(null);
-const currentDj = ref('None');
-const currentlyShowing = ref(null);
+const currentlyShowing = ref(null); // { id, name, type ('cycle'/'schedule'/'gallery'), progress, duration? path?, icon?, source?: 'cycle' | 'schedule' | 'manual' | 'gallery' }
 const selectedItem = ref(null); 
 const activeDrawerTab = ref(null);
 
@@ -749,27 +673,6 @@ const updateSetting = (key, value) => {
 };
 
 // --- Computed --- 
-const timeUrgencyClass = computed(() => {
-  const now = new Date();
-  let nextEventTime = null;
-  for (const event of scheduleItems.value) {
-      try {
-        const [hours, minutes] = event.time.split(':').map(Number);
-        const eventDate = new Date();
-        eventDate.setHours(hours, minutes, 0, 0);
-        if (eventDate > now && (!nextEventTime || eventDate < nextEventTime)) {
-            nextEventTime = eventDate;
-        }
-      } catch (e) { console.error("Error parsing schedule time:", event.time, e); }
-  }
-  if (nextEventTime) {
-      const diffSeconds = (nextEventTime - now) / 1000;
-      if (diffSeconds < 30) return 'time-urgent';
-      if (diffSeconds < 120) return 'time-warning';
-  }
-  return 'time-normal'; 
-});
-
 const filteredGalleryItems = computed(() => {
   let items = [...galleryItems];
 
@@ -801,28 +704,28 @@ const getArtistName = (artistId) => {
   return artist ? artist.name : 'Unknown';
 };
 
+// Computed property to find the next item in the cycle
+const nextCycleItem = computed(() => {
+  if (!currentlyShowing.value || currentlyShowing.value.source !== 'cycle' || !cycleItems.length) {
+    return null; // Not playing from cycle or cycle is empty
+  }
+  const currentIndex = cycleItems.findIndex(item => item.id === currentlyShowing.value.id);
+  if (currentIndex === -1 || currentIndex === cycleItems.length - 1) {
+    // Current item not found, or it's the last item, loop back to the start
+    return cycleItems[0] || null;
+  } else {
+    // Return the next item in the array
+    return cycleItems[currentIndex + 1];
+  }
+});
+
 // --- Methods --- 
 
-function formatTime(date) {
-  if (!(date instanceof Date)) {
-    return '--:--';
-  }
-  const options = {
-    hour: 'numeric',
-    minute: '2-digit',
-    second: '2-digit',
-    hour12: !is24HourFormat.value,
-    timeZone: currentTimeZone.value === 'UTC' ? 'UTC' : undefined
-  };
-  try {
-    return date.toLocaleTimeString('en-CA', options);
-  } catch (e) {
-    console.error("Error formatting time:", e);
-    const hours = (currentTimeZone.value === 'UTC' ? date.getUTCHours() : date.getHours()).toString().padStart(2, '0');
-    const minutes = (currentTimeZone.value === 'UTC' ? date.getUTCMinutes() : date.getMinutes()).toString().padStart(2, '0');
-    const seconds = (currentTimeZone.value === 'UTC' ? date.getUTCSeconds() : date.getSeconds()).toString().padStart(2, '0');
-    return `${hours}:${minutes}:${seconds}`;
-  }
+function formatDuration(seconds) {
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const secondsRemaining = seconds % 60;
+  return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secondsRemaining.toString().padStart(2, '0')}`;
 }
 
 function formatScheduleTime(timeStr) {
@@ -956,7 +859,7 @@ function updateCurrentState_New() {
     } else if (currentItem.value.type === 'cycle') {
       startCycleProgressCalculation(displayInfo.durationMs);
     }
-    currentlyShowing.value = { ...currentItem.value };
+    currentlyShowing.value = { ...currentItem.value, source: currentItem.value.type };
     console.log(`Showing: ${currentItem.value.name} (${currentItem.value.type}), next check in ${nextCheckDelayMs}ms`);
   } else {
     currentItem.value = null;
@@ -1138,7 +1041,6 @@ function toggleDrawer(tabId) {
 async function selectLogoFile() { /* ... */ }
 
 // --- Expanded Item Logic (Keep as is) ---
-function toggleExpand(item, type) { /* ... */ }
 async function saveExpandedItemDetails() { /* ... */ }
 
 // --- Cycle Management (Keep as is) ---
@@ -1155,17 +1057,17 @@ async function handleAddNewScheduleEvent() { /* ... uses old fetchData ... */ }
 // --- Lifecycle & Timer (Keep as is, calls new fetchData) ---
 onMounted(async () => {
   console.log('[NowPlaying.vue] Component is mounting...');
-  clockTimer.value = setInterval(() => { currentTime.value = new Date(); }, 1000);
+  await nextTick(); // Ensure DOM is ready
   initializeGrid();
   await fetchData();
   setupMenuListeners();
 });
 
 onUnmounted(() => {
-  console.log('[NowPlaying.vue] Component is unmounting...');
-  clearInterval(clockTimer.value);
-  clearTimeout(currentTimer.value);
-  clearInterval(cycleProgressInterval);
+  console.log('[NowPlaying.vue] Component unmounting...');
+  if (currentTimer.value) {
+    clearTimeout(currentTimer.value);
+  }
   if (grid.value) { grid.value.destroy(false); }
   if (unlisten) unlisten();
 });
@@ -1173,6 +1075,12 @@ onUnmounted(() => {
 function updateCurrentState() {
   updateCurrentState_New();
 }
+
+// Now Playing Section
+const isExpanded = ref(true);
+const toggleExpand = () => {
+  isExpanded.value = !isExpanded.value;
+};
 
 // Toggle Collapse State
 function toggleCollapse(sectionId) {
@@ -1216,6 +1124,7 @@ const cancelSearch = () => {
 };
 
 // --- Drop Handler for Now Showing --- 
+const isDraggingOverNowPlaying = ref(false);
 const handleDropOnNowPlaying = async (event) => {
   event.preventDefault();
   console.log('[NowPlaying.vue] Drop event received.');
@@ -1241,7 +1150,8 @@ const handleDropOnNowPlaying = async (event) => {
         type: 'logo', 
         progress: 100, 
         icon: 'fa-solid fa-image',
-        filePath: logoFilePath 
+        filePath: logoFilePath,
+        source: 'manual'
       };
       console.log('[NowPlaying.vue] Updated Now Showing state:', currentlyShowing.value);
 
@@ -1253,6 +1163,20 @@ const handleDropOnNowPlaying = async (event) => {
   } catch (error) {
     console.error('[NowPlaying.vue] Error handling drop on Now Playing:', error);
   }
+  isDraggingOverNowPlaying.value = false;
+  event.dataTransfer.clearData();
+};
+
+const handleDragEnterNowPlaying = (event) => {
+  // Check if the dragged data type is what we expect (optional but good practice)
+  if (event.dataTransfer.types.includes('application/json')) {
+    isDraggingOverNowPlaying.value = true;
+  }
+};
+
+const handleDragLeaveNowPlaying = (event) => {
+  // Simple leave, could add checks if needed (e.g., relatedTarget)
+  isDraggingOverNowPlaying.value = false;
 };
 
 // --- NDI Trigger --- 
@@ -1354,6 +1278,79 @@ const handleSubmit = () => {
   });
 };
 
+// --- Drag/Drop Handlers for Cycle Panel --- NEW
+const isDraggingOverCycle = ref(false);
+const draggedItemIndex = ref(null);
+const dragOverIndex = ref(null);
+
+const handleCycleDragStart = (item, index, event) => {
+  console.log(`[NowPlaying.vue] Drag Start Cycle Item: ${item.name}, Index: ${index}`);
+  draggedItemIndex.value = index;
+  // Set data to identify this as an internal cycle drag
+  event.dataTransfer.setData('application/vnd.local.cycle-item', 'true');
+  event.dataTransfer.effectAllowed = 'move';
+};
+
+const handleCycleDragOver = (index, event) => {
+  // Provide visual feedback by setting the index we are dragging over
+  if (index !== draggedItemIndex.value) {
+    dragOverIndex.value = index;
+    event.dataTransfer.dropEffect = 'move';
+  } else {
+    // Don't allow dropping onto itself
+    dragOverIndex.value = null; 
+    event.dataTransfer.dropEffect = 'none';
+  }
+};
+
+const handleCycleDragLeave = () => {
+  // Clear visual feedback when leaving an item
+  dragOverIndex.value = null;
+};
+
+const handleCycleDrop = (targetIndex, event) => {
+  console.log(`[NowPlaying.vue] Drop Cycle Item onto Index: ${targetIndex}`);
+  if (draggedItemIndex.value === null || draggedItemIndex.value === targetIndex) {
+    // Dropping onto itself or drag didn't start correctly
+    draggedItemIndex.value = null;
+    dragOverIndex.value = null;
+    return;
+  }
+
+  // Perform the reorder
+  const itemToMove = cycleItems.value.splice(draggedItemIndex.value, 1)[0];
+  cycleItems.value.splice(targetIndex, 0, itemToMove);
+
+  console.log('[NowPlaying.vue] Cycle reordered:', cycleItems.value.map(i => i.name));
+  showNotification('Cycle order updated.', 'info');
+  // TODO: Persist the new cycle order (e.g., invoke backend)
+  // await invoke('update_default_cycle', { updatedCycle: cycleItems.value });
+
+  // Reset drag state
+  draggedItemIndex.value = null;
+  dragOverIndex.value = null;
+  event.dataTransfer.clearData('application/vnd.local.cycle-item');
+};
+
+// --- Add local Cycle playing state ---
+const isCyclePlaying = ref(false); 
+
+// --- Add method to toggle local cycle playback ---
+const toggleCyclePlayback = () => {
+  isCyclePlaying.value = !isCyclePlaying.value;
+  console.log('Local Cycle Playback Toggled:', isCyclePlaying.value);
+  // TODO: Add actual logic to start/stop the cycle timer/updates
+  // If starting, need to immediately find the first item and start its progress.
+  // If stopping, need to clear any cycle progress intervals.
+};
+
+// Helper function to determine if a file is an image
+const isImage = (filePath) => {
+  if (!filePath) return false;
+  const imageExtensions = [".jpg", ".jpeg", ".png", ".gif", ".webp", ".svg"];
+  const extension = filePath.substring(filePath.lastIndexOf(".")).toLowerCase();
+  return imageExtensions.includes(extension);
+};
 </script>
 
 <style>
@@ -1363,25 +1360,23 @@ const handleSubmit = () => {
 /* Optional: Gridstack extras */
 /* @import 'gridstack/dist/gridstack-extra.min.css'; */
 
-/* --- Base Layout Styles (Restored) --- */
+/* Base Layout Styles (Restored) */
 .live-control-container {
   display: flex;
   flex-direction: column;
-  height: 100vh; 
-  background-color: var(--background-color, #121212); 
-  color: var(--text-color, #e0e0e0); 
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  overflow: hidden;
+  height: 100vh;
+  background: var(--background-color);
+  color: var(--text-color);
 }
 
 .top-bar {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  padding: 10px 20px;
-  background-color: var(--secondary-color, #1e1e1e);
-  border-bottom: 1px solid var(--border-color, #333);
-  flex-shrink: 0;
+  align-items: stretch;
+  background: var(--surface-1);
+  border-bottom: 1px solid var(--surface-3);
+  padding: 0.5rem;
+  gap: 1rem;
 }
 
 .main-content-grid { 
@@ -1390,231 +1385,6 @@ const handleSubmit = () => {
   margin: 0; 
 }
 
-.bottom-bar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 10px 20px;
-  background-color: var(--secondary-color, #1e1e1e);
-  border-top: 1px solid var(--border-color, #333);
-  flex-shrink: 0;
-  margin-top: auto;
-}
-
-/* --- Gridstack Integration --- */
-.grid-stack {
-    /* background: #404040; */
-}
-
-.grid-stack-item > .grid-stack-item-content {
-    background-color: var(--item-bg-color, #2a2a2a); 
-    border-radius: var(--border-radius, 4px);
-    border: 1px solid var(--border-color, #333);
-    overflow: hidden; 
-    display: flex; 
-    flex-direction: column; 
-    color: var(--text-color, #e0e0e0);
-}
-
-.grid-stack-item-content.section {
-    padding: 0; 
-    height: 100%;
-    border: none; 
-}
-
-/* Adjust padding for section content within grid items */
-.grid-stack-item-content .section-header {
-     padding: 10px 15px;
-     margin-bottom: 0;
-     border-bottom: 1px solid var(--border-color, #333);
-}
-.grid-stack-item-content .section-body,
-.grid-stack-item-content .item-container, 
-.grid-stack-item-content .schedule-list-container {
-    padding: 15px;
-    flex-grow: 1;
-    overflow-y: auto;
-}
-
-
-/* --- Top Bar Content --- */
-.now-showing {
-  flex: 1;
-  margin-right: 20px;
-  min-width: 0;
-}
-
-.now-showing-title {
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  color: var(--text-color-secondary, #aaa);
-  margin-bottom: 4px;
-}
-
-.now-showing-preview {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-  border: 2px dashed transparent;
-  transition: border-color 0.2s ease, background-color 0.2s ease;
-}
-
-.preview-content {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 16px;
-  font-weight: 500;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.preview-content i {
-  color: var(--primary-color);
-  flex-shrink: 0;
-}
-
-.progress-bar-container {
-  height: 4px;
-  background-color: rgba(255, 255, 255, 0.1);
-  border-radius: 2px;
-  overflow: hidden;
-}
-
-.progress-bar {
-  height: 100%;
-  background-color: var(--primary-color);
-  transition: width 0.3s ease;
-}
-
-.time-display {
-  display: flex;
-  align-items: center;
-  gap: 15px;
-}
-
-.system-time {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 18px;
-  font-weight: 500;
-  font-family: monospace;
-}
-
-.system-time i {
-  font-size: 16px;
-  opacity: 0.7;
-}
-
-/* Time Urgency Classes */
-.time-normal { color: var(--text-color); }
-.time-warning { color: var(--warning-color, orange); }
-.time-urgent { color: var(--error-color, red); font-weight: bold; }
-
-
-/* --- Shared Component Styles (Keep all previously added styles below) --- */
-
-/* Section Styles */
-.section {
-    /* Base styles if needed, often handled by grid-item-content now */
-}
-.section-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding-left: 5px;
-    position: relative;
-    /* Prevent selection on the whole header potentially */
-    /* user-select: none; */ 
-}
-.section-title {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 1.1em;
-    font-weight: 500;
-    color: var(--text-color);
-    flex-grow: 1;
-    /* Prevent text selection on title */
-    user-select: none;
-    -webkit-user-select: none;
-    -moz-user-select: none;
-    -ms-user-select: none;
-}
-.section-title i {
-    color: var(--primary-color);
-    font-size: 1em;
-}
-.section-controls {
-    display: flex;
-    gap: 8px;
-}
-.section-body {
-    /* Styles for the main content area of a section */
-    /* Typically handles flex-grow, overflow */
-}
-
-/* Item Box Styles */
-.item-box {
-    background-color: rgba(255, 255, 255, 0.05);
-    border-radius: var(--border-radius);
-    padding: 12px;
-    cursor: pointer;
-    transition: all var(--transition-speed);
-    border: 1px solid transparent;
-    display: flex;
-    flex-direction: column;
-}
-.item-box:hover {
-    background-color: rgba(255, 255, 255, 0.1);
-    transform: translateY(-1px);
-}
-.item-box.active {
-    border-color: var(--primary-color);
-    box-shadow: 0 0 0 1px var(--primary-color);
-}
-.item-box.selected {
-    background-color: rgba(33, 150, 243, 0.15);
-    border-color: rgba(33, 150, 243, 0.5);
-}
-.item-content { flex-grow: 1; }
-.item-header { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; }
-.item-name { font-weight: 500; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.item-meta { display: flex; gap: 12px; font-size: 12px; opacity: 0.7; }
-.lock-icon { color: var(--warning-color); }
-.item-box .progress-bar-container { margin-top: 8px; }
-
-/* Cycle Section Specific */
-.cycle-section .item-container { padding: 5px 15px 15px 15px; }
-.horizontal-scroll { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 8px; min-height: 80px; }
-.cycle-item { min-width: 180px; flex-shrink: 0; }
-
-/* Gallery Section Specific */
-.gallery-section .section-body { padding: 0; }
-.gallery-grid-container { }
-.gallery-item-content { }
-.gallery-item { height: 100px; }
-
-/* Schedule Section Specific */
-.schedule-list-container { }
-.schedule-list { list-style: none; padding: 0; margin: 0; }
-.schedule-list li { display: flex; gap: 10px; padding: 8px 5px; border-bottom: 1px solid var(--border-color); cursor: pointer; transition: background-color var(--transition-speed); }
-.schedule-list li:hover { background-color: rgba(255, 255, 255, 0.05); }
-.schedule-list li.selected { background-color: rgba(33, 150, 243, 0.15); }
-.schedule-list .time { font-weight: 500; width: 70px; text-align: right; flex-shrink: 0; }
-.schedule-list .name { flex-grow: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-
-/* State Indicators */
-.loading-state, .error-state, .empty-state { }
-
-/* Item Details Styles */
-.item-details { }
-.gallery-details { }
-
-/* Bottom Bar and Drawer Styles */
 .bottom-bar {
   display: flex;
   justify-content: space-between;
@@ -1773,7 +1543,7 @@ const handleSubmit = () => {
 
 .form-group input,
 .form-group select {
-  padding: 8px;
+  padding: 0.75rem;
   background: var(--button-bg);
   border: 1px solid var(--border-color);
   border-radius: var(--border-radius);
@@ -1786,16 +1556,20 @@ const handleSubmit = () => {
 }
 
 .file-picker-btn {
-  padding: 8px;
-  background: var(--button-bg);
-  border: 1px solid var(--border-color);
+  padding: 0.75rem 1rem;
+  background: var(--surface-2);
+  border: 1px solid var(--surface-3);
   border-radius: var(--border-radius);
   color: var(--text-color);
   cursor: pointer;
-}
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: all 0.2s ease;
 
-.file-picker-btn:hover {
-  background: var(--button-hover-bg);
+  &:hover {
+    background: var(--surface-3);
+  }
 }
 
 /* Gallery Filter Styles */
@@ -1858,13 +1632,10 @@ const handleSubmit = () => {
     /* align-items: center; */
 }
 
-
-/* Notification Styles */
-.notifications-container {
-  position: fixed;
-  top: 20px;
-  right: 20px;
-  z-index: 1000;
+/* Style active state for cycle control buttons */
+.section-controls .control-button.active {
+  color: var(--primary-color); /* Or a specific active color */
+  /* background-color: rgba(var(--primary-color-rgb), 0.1); */ /* Optional subtle background */
 }
 
 /* Gridstack Drag Handle Style Update */
@@ -1887,14 +1658,14 @@ const handleSubmit = () => {
 .drag-handle i {
   font-size: 13px;
   font-family: 'Font Awesome 6 Free', 'Font Awesome 6 Brands' !important;
-  font-weight: 900 !important;
+  font-weight: 900 !important; /* Solid icons */
   display: inline-block !important;
   font-style: normal !important;
   font-variant: normal !important;
   text-rendering: auto !important;
   -webkit-font-smoothing: antialiased !important;
-  line-height: 1;
-  vertical-align: middle;
+  line-height: 1; /* Ensure consistent line height */
+  vertical-align: middle; /* Align icon vertically */
 }
 
 /* Gridstack Resize Handle Styling - Revised */
@@ -1980,7 +1751,6 @@ const handleSubmit = () => {
 .grid-stack-item > .ui-resizable-nw::before { top: 0; left: 4px; }
 .grid-stack-item > .ui-resizable-nw::after  { top: 4px; left: 0; }
 
-
 /* Hide handles when locked */
 .grid-stack.grid-stack-locked > .grid-stack-item > .ui-resizable-handle {
     display: none !important;
@@ -1991,6 +1761,7 @@ const handleSubmit = () => {
     display: flex;
     gap: 5px; /* Slightly smaller gap */
     margin-left: auto; /* Push controls to the right */
+    align-items: center; /* Vertically align buttons */
 }
 
 .control-button {
@@ -2041,7 +1812,7 @@ const handleSubmit = () => {
 }
 
 /* Consider adding a class dynamically on dragover */
-.now-showing-preview.drag-over-active {
+.now-showing-preview.dragging-over {
   border-color: var(--primary-color);
   background-color: rgba(33, 150, 243, 0.1);
 }
@@ -2266,7 +2037,7 @@ const handleSubmit = () => {
     width: 100%;
     padding: 0.75rem;
     border: 1px solid var(--surface-3);
-    border-radius: 4px;
+    border-radius: var(--border-radius);
     background: var(--surface-1);
     color: var(--text-1);
     font-size: 0.875rem;
@@ -2296,7 +2067,7 @@ const handleSubmit = () => {
     padding: 0.75rem 1rem;
     background: var(--surface-2);
     border: 1px solid var(--surface-3);
-    border-radius: 4px;
+    border-radius: var(--border-radius);
     color: var(--text-1);
     font-size: 0.875rem;
     cursor: pointer;
@@ -2386,7 +2157,7 @@ const handleSubmit = () => {
     padding: 0.75rem 1.5rem;
     background: var(--brand);
     border: none;
-    border-radius: 4px;
+    border-radius: var(--border-radius);
     color: white;
     font-size: 0.875rem;
     font-weight: 500;
@@ -2401,4 +2172,74 @@ const handleSubmit = () => {
     }
   }
 }
+
+/* Style for when dragging over the cycle drop zone */
+.cycle-section .section-body.dragging-over {
+  outline: 2px dashed var(--primary-color);
+  outline-offset: -4px; /* Pull outline inside padding */
+  background-color: rgba(33, 150, 243, 0.05); /* Subtle highlight */
+}
+
+/* Highlight for the 'Next Up' item in the cycle */
+.cycle-item.next-up {
+  border-left: 4px solid var(--highlight-color, orange); /* Or some other highlight */
+  background-color: rgba(255, 165, 0, 0.1); /* Subtle background */
+}
+
+/* Item Box Styles */
+.item-box {
+    background-color: var(--item-bg-color, rgba(255, 255, 255, 0.05));
+    border-radius: var(--item-border-radius, 6px);
+    padding: 10px;
+    cursor: pointer;
+    transition: background-color var(--transition-speed), border-color var(--transition-speed), transform var(--transition-speed), box-shadow var(--transition-speed);
+    border: 1px solid var(--item-border-color, transparent);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden; /* Contain thumbnail */
+}
+.item-box:hover {
+    background-color: var(--item-hover-bg-color, rgba(255, 255, 255, 0.1));
+    transform: translateY(-1px);
+}
+.item-box.active {
+    border-color: var(--item-active-border-color, var(--primary-color));
+    box-shadow: 0 0 0 1px var(--item-active-shadow-color, var(--primary-color));
+}
+.item-box.selected {
+    background-color: var(--item-selected-bg-color, rgba(var(--primary-color-rgb), 0.15));
+    border-color: var(--item-selected-border-color, rgba(var(--primary-color-rgb), 0.5));
+}
+
+.cycle-item.drag-over {
+    outline: 2px solid var(--item-drag-over-outline-color, var(--primary-color));
+    background-color: var(--item-drag-over-bg-color, rgba(var(--primary-color-rgb), 0.1));
+}
+
+.item-thumbnail {
+  width: 100%;
+  aspect-ratio: 16 / 9; /* Maintain aspect ratio */
+  background-color: var(--thumbnail-bg-color, #1a1a1a);
+  border-radius: calc(var(--item-border-radius, 6px) - 4px); /* Slightly smaller radius */
+  overflow: hidden;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.item-thumbnail img,
+.item-thumbnail video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain; /* Use 'cover' if you prefer filling */
+}
+
+.thumbnail-placeholder {
+  color: var(--text-color-muted, #666);
+  font-size: 1.5rem;
+}
+
+.item-content { flex-grow: 1; }
 </style>
